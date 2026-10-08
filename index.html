@@ -1,300 +1,150 @@
-<!DOCTYPE html>
-<html lang="vi">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Gợi Ý Số Vietlott Thông Minh - 200 Kỳ Gần Nhất</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <style>
-    .ball {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      font-weight: 700;
-      color: #fff;
-      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
-    }
-    .ball-mega { background: radial-gradient(circle at 30% 30%, #ef4444, #991b1b); }
-    .ball-power { background: radial-gradient(circle at 30% 30%, #f59e0b, #b45309); }
-    .ball-bonus { background: radial-gradient(circle at 30% 30%, #dc2626, #7f1d1d); border: 2px solid #fef08a; }
-  </style>
-</head>
-<body class="bg-slate-950 text-slate-100 min-h-screen">
+import json
+import os
+import re
+from datetime import datetime
+import requests
+from bs4 import BeautifulSoup
 
-  <div class="max-w-5xl mx-auto px-4 py-8">
-    <!-- Header -->
-    <header class="text-center mb-8">
-      <h1 class="text-3xl sm:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-red-500 via-amber-400 to-yellow-500">
-        VIETLOTT STATS & AI SUGGESTION
-      </h1>
-      <p class="text-slate-400 mt-2 text-sm sm:text-base">
-        Phân tích thống kê & Tối ưu hóa xác suất dựa trên 200 kỳ mở thưởng gần nhất
-      </p>
-      <div id="data-status" class="inline-flex items-center gap-2 mt-3 px-3 py-1 rounded-full text-xs font-semibold bg-slate-800 text-slate-400 border border-slate-700">
-        <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Đang nạp dữ liệu...
-      </div>
-    </header>
+DATA_FILE = "data.json"
+HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    ),
+    "Accept-Language": "vi,en-US;q=0.9,en;q=0.8",
+}
 
-    <!-- Chọn Game -->
-    <div class="flex justify-center gap-4 mb-8">
-      <button id="btn-tab-mega" onclick="switchGame('mega645')" class="px-6 py-2.5 rounded-xl font-bold transition flex items-center gap-2 bg-red-600 text-white shadow-lg shadow-red-600/30">
-        <i class="fa-solid fa-fire"></i> Mega 6/45
-      </button>
-      <button id="btn-tab-power" onclick="switchGame('power655')" class="px-6 py-2.5 rounded-xl font-bold transition flex items-center gap-2 bg-slate-800 text-slate-300 hover:bg-slate-700">
-        <i class="fa-solid fa-bolt"></i> Power 6/55
-      </button>
-    </div>
 
-    <!-- Khung chính -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-      
-      <!-- Cột gợi ý số -->
-      <div class="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
-        <div>
-          <h2 class="text-lg font-bold text-slate-200 mb-4 flex items-center gap-2">
-            <i class="fa-solid fa-wand-magic-sparkles text-amber-400"></i> Bộ Số Gợi Ý Tối Ưu
-          </h2>
-          
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
-            <label class="cursor-pointer">
-              <input type="radio" name="strategy" value="balanced" checked class="peer sr-only">
-              <div class="p-3 rounded-xl border border-slate-700 peer-checked:border-red-500 peer-checked:bg-red-500/10 text-center transition">
-                <div class="font-bold text-sm text-slate-200">Cân Bằng Chuẩn</div>
-                <div class="text-xs text-slate-400 mt-1">Chẵn/Lẻ 3:3, Tổng chuẩn</div>
-              </div>
-            </label>
-            <label class="cursor-pointer">
-              <input type="radio" name="strategy" value="hot" class="peer sr-only">
-              <div class="p-3 rounded-xl border border-slate-700 peer-checked:border-red-500 peer-checked:bg-red-500/10 text-center transition">
-                <div class="font-bold text-sm text-slate-200">Bắt Cầu Nóng</div>
-                <div class="text-xs text-slate-400 mt-1">Ưu tiên số ra nhiều nhất</div>
-              </div>
-            </label>
-            <label class="cursor-pointer">
-              <input type="radio" name="strategy" value="cold" class="peer sr-only">
-              <div class="p-3 rounded-xl border border-slate-700 peer-checked:border-red-500 peer-checked:bg-red-500/10 text-center transition">
-                <div class="font-bold text-sm text-slate-200">Lô Gan Phục Hồi</div>
-                <div class="text-xs text-slate-400 mt-1">Số lâu nhất chưa về</div>
-              </div>
-            </label>
-          </div>
+def load_existing_data():
+    if os.path.exists(DATA_FILE):
+        try:
+            with open(DATA_FILE, "r", encoding="utf-8") as f:
+                content = json.load(f)
+                if isinstance(content, dict):
+                    return content
+        except Exception:
+            pass
+    return {"mega645": [], "power655": []}
 
-          <!-- Khu vực hiển thị bóng số -->
-          <div id="suggested-box" class="min-h-[110px] bg-slate-950 border border-slate-800/80 rounded-xl p-4 flex flex-col items-center justify-center gap-3">
-            <div id="balls-container" class="flex flex-wrap gap-2.5 justify-center">
-              <span class="text-slate-500 text-sm italic">Bấm nút "Tạo Dãy Số" để nhận gợi ý</span>
-            </div>
-            <div id="stat-indicators" class="hidden text-xs text-slate-400 flex flex-wrap gap-4 justify-center"></div>
-          </div>
-        </div>
 
-        <button onclick="generateSuggestion()" class="w-full mt-6 py-3.5 bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 font-bold rounded-xl text-white shadow-lg transition active:scale-[0.99] flex items-center justify-center gap-2">
-          <i class="fa-solid fa-dice"></i> TẠO DÃY SỐ GỢI Ý
-        </button>
-      </div>
+def crawl_atrungroi(url, game_type):
+    """Cào kết quả từ nguồn mở không chặn IP quốc tế của GitHub Actions"""
+    results = []
+    try:
+        res = requests.get(url, headers=HEADERS, timeout=25)
+        res.encoding = "utf-8"
+        if res.status_code != 200:
+            print(f"Không thể truy cập {url} (HTTP {res.status_code})")
+            return results
 
-      <!-- Cột thống kê nhanh Top Hot & Gan -->
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
-        <div>
-          <h2 class="text-lg font-bold text-slate-200 mb-4 flex items-center gap-2">
-            <i class="fa-solid fa-chart-simple text-red-500"></i> Top Tần Suất (200 Kỳ)
-          </h2>
-          <div class="space-y-4 text-sm">
-            <div>
-              <div class="text-xs text-slate-400 mb-2 font-semibold uppercase tracking-wider">Top 5 Số Hay Về Nhất</div>
-              <div id="top-hot" class="flex gap-2"></div>
-            </div>
-            <div>
-              <div class="text-xs text-slate-400 mb-2 font-semibold uppercase tracking-wider">Top 5 Lô Gan (Lâu Chưa Về)</div>
-              <div id="top-cold" class="flex gap-2"></div>
-            </div>
-          </div>
-        </div>
-        <div class="mt-6 pt-4 border-t border-slate-800 text-xs text-slate-500">
-          Kỳ quay mới nhất: <span id="latest-draw-info" class="text-slate-300 font-medium">---</span>
-        </div>
-      </div>
+        soup = BeautifulSoup(res.text, "html.parser")
+        text = soup.get_text(" ", strip=True)
 
-    </div>
+        if game_type == "mega645":
+            # Mega 6/45: 6 cặp số (12 chữ số liên tiếp)
+            # Mẫu: Kỳ quay thưởng #1572, Thứ 4, ngày 7/10/2026. 101436374143
+            matches = re.finditer(
+                r"Kỳ quay(?: thưởng)?\s*#?(\d+)[^\d]+?(\d{1,2}/\d{1,2}/\d{4})[^\d]+?(\d{12})\b",
+                text,
+            )
+            for m in matches:
+                draw_id = m.group(1).zfill(5)
+                date_str = m.group(2)
+                raw_nums = m.group(3)
+                numbers = sorted(
+                    [int(raw_nums[i : i + 2]) for i in range(0, 12, 2)]
+                )
 
-    <!-- Bảng Heatmap ma trận tần suất -->
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
-      <h2 class="text-lg font-bold text-slate-200 mb-4 flex items-center gap-2">
-        <i class="fa-solid fa-table-cells text-yellow-500"></i> Ma Trận Tần Suất Toàn Bộ Bóng Số
-      </h2>
-      <div id="heatmap-grid" class="grid grid-cols-5 sm:grid-cols-9 md:grid-cols-11 gap-2 text-center text-xs">
-        <!-- Render bằng JS -->
-      </div>
-    </div>
+                if (
+                    len(numbers) == 6
+                    and all(1 <= x <= 45 for x in numbers)
+                    and not any(r["draw"] == draw_id for r in results)
+                ):
+                    results.append(
+                        {"draw": draw_id, "date": date_str, "numbers": numbers}
+                    )
 
-  </div>
+        else:
+            # Power 6/55: 7 cặp số (14 chữ số, gồm 6 số chính + 1 số jackpot 2)
+            # Mẫu: Kỳ quay thưởng #1407 Thứ 3, ngày 6/10/2026. 06071820242701
+            matches = re.finditer(
+                r"Kỳ quay(?: thưởng)?\s*#?(\d+)[^\d]+?(\d{1,2}/\d{1,2}/\d{4})[^\d]+?(\d{14})\b",
+                text,
+            )
+            for m in matches:
+                draw_id = m.group(1).zfill(5)
+                date_str = m.group(2)
+                raw_nums = m.group(3)
+                main_nums = sorted(
+                    [int(raw_nums[i : i + 2]) for i in range(0, 12, 2)]
+                )
+                bonus = int(raw_nums[12:14])
 
-  <script>
-    let currentData = { mega645: [], power655: [] };
-    let currentGame = 'mega645';
+                if (
+                    len(main_nums) == 6
+                    and all(1 <= x <= 55 for x in main_nums)
+                    and not any(r["draw"] == draw_id for r in results)
+                ):
+                    results.append(
+                        {
+                            "draw": draw_id,
+                            "date": date_str,
+                            "numbers": main_nums,
+                            "bonus": bonus,
+                        }
+                    )
 
-    // 1. Tải data.json
-    async function init() {
-      const statusEl = document.getElementById('data-status');
-      try {
-        const res = await fetch('./data.json?v=' + Date.now());
-        if (!res.ok) throw new Error("Chưa có data.json");
-        currentData = await res.json();
-        statusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span> Đã nạp ${currentData[currentGame].length} kỳ gần nhất`;
-        statusEl.className = statusEl.className.replace('text-slate-400', 'text-emerald-400 border-emerald-500/30');
-      } catch (e) {
-        statusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-500"></span> Chưa tìm thấy data.json (Dùng dữ liệu mô phỏng)`;
-      }
-      renderView();
-    }
+    except Exception as e:
+        print(f"Lỗi khi cào {game_type}: {e}")
 
-    function switchGame(game) {
-      currentGame = game;
-      const btnMega = document.getElementById('btn-tab-mega');
-      const btnPower = document.getElementById('btn-tab-power');
-      if (game === 'mega645') {
-        btnMega.className = "px-6 py-2.5 rounded-xl font-bold transition flex items-center gap-2 bg-red-600 text-white shadow-lg shadow-red-600/30";
-        btnPower.className = "px-6 py-2.5 rounded-xl font-bold transition flex items-center gap-2 bg-slate-800 text-slate-300 hover:bg-slate-700";
-      } else {
-        btnPower.className = "px-6 py-2.5 rounded-xl font-bold transition flex items-center gap-2 bg-amber-600 text-white shadow-lg shadow-amber-600/30";
-        btnMega.className = "px-6 py-2.5 rounded-xl font-bold transition flex items-center gap-2 bg-slate-800 text-slate-300 hover:bg-slate-700";
-      }
-      renderView();
-    }
+    return results
 
-    function getStats() {
-      const maxNum = currentGame === 'mega645' ? 45 : 55;
-      const draws = currentData[currentGame] || [];
-      const freq = Array(maxNum + 1).fill(0);
-      const gap = Array(maxNum + 1).fill(draws.length);
 
-      draws.forEach((draw, dIndex) => {
-        draw.numbers.forEach(num => {
-          if (num <= maxNum) {
-            freq[num]++;
-            if (gap[num] === draws.length) gap[num] = dIndex; // Số kỳ cách đây
-          }
-        });
-      });
+def main():
+    data = load_existing_data()
 
-      const list = [];
-      for (let i = 1; i <= maxNum; i++) {
-        list.push({ num: i, freq: freq[i], gap: gap[i] });
-      }
-      return { list, draws, maxNum };
-    }
+    print("--- Đang cào Mega 6/45 ---")
+    mega_crawled = crawl_atrungroi(
+        "https://atrungroi.com/xstc-xo-so-tu-chon-mega-645-vietlott.html",
+        "mega645",
+    )
+    print(f"Tìm thấy {len(mega_crawled)} kỳ Mega 6/45")
 
-    function renderView() {
-      const { list, draws, maxNum } = getStats();
+    print("--- Đang cào Power 6/55 ---")
+    power_crawled = crawl_atrungroi(
+        "https://atrungroi.com/xo-so-power-6-55-vietlott.html", "power655"
+    )
+    print(f"Tìm thấy {len(power_crawled)} kỳ Power 6/55")
 
-      // Thông tin kỳ mới nhất
-      const latestEl = document.getElementById('latest-draw-info');
-      if (draws.length > 0) {
-        latestEl.innerText = `Kỳ #${draws[0].draw} (${draws[0].date})`;
-      } else {
-        latestEl.innerText = "Chưa có kỳ nào";
-      }
+    # Ghép dữ liệu mới vào dữ liệu cũ (tránh trùng kỳ)
+    def merge_records(existing, new_items):
+        merged = {item["draw"]: item for item in existing}
+        for item in new_items:
+            merged[item["draw"]] = item
+        # Sắp xếp kỳ quay mới nhất lên trước
+        return sorted(
+            list(merged.values()),
+            key=lambda x: int(x["draw"]) if str(x["draw"]).isdigit() else 0,
+            reverse=True,
+        )[:200]
 
-      // Top Hot & Top Gan
-      const hotList = [...list].sort((a, b) => b.freq - a.freq).slice(0, 5);
-      const coldList = [...list].sort((a, b) => b.gap - a.gap).slice(0, 5);
+    if mega_crawled:
+        data["mega645"] = merge_records(
+            data.get("mega645", []), mega_crawled
+        )
+    if power_crawled:
+        data["power655"] = merge_records(
+            data.get("power655", []), power_crawled
+        )
 
-      const ballClass = currentGame === 'mega645' ? 'ball-mega' : 'ball-power';
-      document.getElementById('top-hot').innerHTML = hotList.map(item => `
-        <div class="text-center">
-          <div class="ball ${ballClass} text-xs w-8 h-8">${String(item.num).padStart(2, '0')}</div>
-          <div class="text-[10px] text-slate-400 mt-1">${item.freq} lần</div>
-        </div>
-      `).join('');
+    # Chỉ ghi đè nếu có dữ liệu thực tế
+    if data["mega645"] or data["power655"]:
+        with open(DATA_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        print("Đã cập nhật thành công data.json!")
+    else:
+        print("Không có dữ liệu mới, giữ nguyên file cũ.")
 
-      document.getElementById('top-cold').innerHTML = coldList.map(item => `
-        <div class="text-center">
-          <div class="ball bg-slate-800 border border-slate-700 text-xs w-8 h-8">${String(item.num).padStart(2, '0')}</div>
-          <div class="text-[10px] text-amber-500 mt-1">${item.gap} kỳ</div>
-        </div>
-      `).join('');
 
-      // Heatmap Ma trận
-      const maxFreq = Math.max(...list.map(x => x.freq), 1);
-      const grid = document.getElementById('heatmap-grid');
-      grid.innerHTML = list.map(item => {
-        const intensity = Math.min(Math.floor((item.freq / maxFreq) * 100), 100);
-        return `
-          <div class="p-2 rounded-lg bg-slate-950 border border-slate-800 flex flex-col items-center">
-            <span class="font-bold text-slate-200">${String(item.num).padStart(2, '0')}</span>
-            <span class="text-[10px] text-slate-400 mt-0.5">${item.freq} lần</span>
-            <div class="w-full bg-slate-800 h-1 rounded mt-1.5 overflow-hidden">
-              <div class="bg-amber-500 h-full" style="width: ${intensity}%"></div>
-            </div>
-          </div>
-        `;
-      }).join('');
-    }
-
-    // Thuật toán gợi ý số
-    function generateSuggestion() {
-      const { list, maxNum } = getStats();
-      const strategy = document.querySelector('input[name="strategy"]:checked').value;
-      let selected = [];
-
-      if (strategy === 'hot') {
-        const pool = [...list].sort((a, b) => b.freq - a.freq).slice(0, 15).map(x => x.num);
-        selected = pickRandom(pool, 6);
-      } else if (strategy === 'cold') {
-        const pool = [...list].sort((a, b) => b.gap - a.gap).slice(0, 15).map(x => x.num);
-        selected = pickRandom(pool, 6);
-      } else {
-        // Cân bằng Heuristics: Lọc tổng và chẵn/lẻ
-        let attempts = 0;
-        while (attempts < 500) {
-          attempts++;
-          const temp = pickRandom(Array.from({length: maxNum}, (_, i) => i + 1), 6);
-          const sum = temp.reduce((a, b) => a + b, 0);
-          const evens = temp.filter(x => x % 2 === 0).length;
-          // Khoảng tổng tối ưu cho 6/45 là 100-160, 6/55 là 130-200; Chẵn lẻ 3:3 hoặc 4:2
-          const sumMin = maxNum === 45 ? 100 : 130;
-          const sumMax = maxNum === 45 ? 165 : 210;
-          if (sum >= sumMin && sum <= sumMax && (evens === 3 || evens === 2 || evens === 4)) {
-            selected = temp;
-            break;
-          }
-        }
-        if (selected.length === 0) selected = pickRandom(Array.from({length: maxNum}, (_, i) => i + 1), 6);
-      }
-
-      selected.sort((a, b) => a - b);
-      renderSuggestedBalls(selected);
-    }
-
-    function pickRandom(arr, count) {
-      const shuffled = [...arr].sort(() => 0.5 - Math.random());
-      return shuffled.slice(0, count);
-    }
-
-    function renderSuggestedBalls(numbers) {
-      const container = document.getElementById('balls-container');
-      const ballClass = currentGame === 'mega645' ? 'ball-mega' : 'ball-power';
-      container.innerHTML = numbers.map(n => `
-        <div class="ball ${ballClass} text-base scale-105 animate-bounce" style="animation-duration: 0.6s">
-          ${String(n).padStart(2, '0')}
-        </div>
-      `).join('');
-
-      const sum = numbers.reduce((a, b) => a + b, 0);
-      const evens = numbers.filter(x => x % 2 === 0).length;
-      const statEl = document.getElementById('stat-indicators');
-      statEl.classList.remove('hidden');
-      statEl.innerHTML = `
-        <span><b class="text-slate-300">Tổng:</b> ${sum}</span>
-        <span><b class="text-slate-300">Chẵn/Lẻ:</b> ${evens}/${6 - evens}</span>
-      `;
-    }
-
-    window.addEventListener('DOMContentLoaded', init);
-  </script>
-</body>
-</html>
+if __name__ == "__main__":
+    main()
