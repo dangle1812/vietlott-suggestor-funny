@@ -15,131 +15,135 @@ HEADERS = {
 
 
 def load_data():
+    """Tải dữ liệu cũ từ data.json nếu tồn tại"""
     if os.path.exists(DATA_FILE):
         try:
             with open(DATA_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
+                content = json.load(f)
+                if isinstance(content, dict):
+                    return content
         except Exception:
             pass
     return {"mega645": [], "power655": []}
 
 
-def crawl_minhchinh_table(url, game_type):
-    """Bóc tách dữ liệu từ bảng thống kê 15 kỳ gần nhất của Minh Chính"""
+def parse_minhchinh_table(url, game_type):
+    """
+    Bóc tách bảng thống kê 15 kỳ gần nhất từ Minh Chính
+    game_type: 'mega645' (lấy 6 số <= 45) hoặc 'power655' (lấy 6 số <= 55 + 1 bonus)
+    """
     results = []
     try:
-        res = requests.get(url, headers=HEADERS, timeout=20)
+        res = requests.get(url, headers=HEADERS, timeout=25)
         res.encoding = "utf-8"
         if res.status_code != 200:
-            print(f"Không thể kết nối {url} (HTTP {res.status_code})")
+            print(f"Không thể kết nối đến {url} (Mã HTTP: {res.status_code})")
             return results
 
         soup = BeautifulSoup(res.text, "html.parser")
-
-        # Tìm các dòng <tr> trong bảng kết quả
         rows = soup.find_all("tr")
+
         for row in rows:
             cells = row.find_all(["td", "th"])
             if len(cells) < 2:
                 continue
 
-            # 1. Tìm ngày quay (cột đầu tiên)
-            date_cell = cells[0].get_text(strip=True)
-            match_date = re.search(r"(\d{2}/\d{2}/\d{4})", date_cell)
+            # 1. Tìm ngày quay ở ô đầu tiên
+            first_cell_text = cells[0].get_text(strip=True)
+            match_date = re.search(r"(\d{2}/\d{2}/\d{4})", first_cell_text)
             if not match_date:
                 continue
             date_str = match_date.group(1)
 
-            # 2. Tìm tất cả bóng số trong dòng đó
-            # Các bóng số hiển thị 2 chữ số
+            # 2. Tìm tất cả các bóng số trong dòng
             balls = []
             for tag in row.find_all(["span", "div", "b", "strong"]):
-                val = tag.get_text(strip=True)
-                if val.isdigit() and len(val) <= 2:
-                    balls.append(int(val))
+                text_val = tag.get_text(strip=True)
+                if text_val.isdigit() and len(text_val) <= 2:
+                    balls.append(int(text_val))
 
-            limit = 45 if game_type == "mega645" else 55
-            # Lọc số hợp lệ theo loại vé
-            valid_balls = [b for b in balls if 1 <= b <= limit]
+            max_ball_val = 45 if game_type == "mega645" else 55
+            valid_balls = [b for b in balls if 1 <= b <= max_ball_val]
 
-            # Mega 6/45 cần ít nhất 6 bóng, Power 6/55 cần ít nhất 7 bóng (6 số chính + 1 Jackpot 2)
+            # Xử lý theo loại hình xổ số
             if game_type == "mega645" and len(valid_balls) >= 6:
                 main_nums = sorted(valid_balls[:6])
-                results.append(
-                    {
-                        "draw": date_str.replace("/", ""),  # Định danh theo ngày
-                        "date": date_str,
-                        "numbers": main_nums,
-                    }
-                )
+                # Tránh trùng lặp ngày trong cùng một bảng
+                if not any(r["date"] == date_str for r in results):
+                    results.append(
+                        {
+                            "draw": date_str.replace("/", ""),
+                            "date": date_str,
+                            "numbers": main_nums,
+                        }
+                    )
             elif game_type == "power655" and len(valid_balls) >= 7:
                 main_nums = sorted(valid_balls[:6])
                 bonus_num = valid_balls[6]
-                results.append(
-                    {
-                        "draw": date_str.replace("/", ""),
-                        "date": date_str,
-                        "numbers": main_nums,
-                        "bonus": bonus_num,
-                    }
-                )
+                if not any(r["date"] == date_str for r in results):
+                    results.append(
+                        {
+                            "draw": date_str.replace("/", ""),
+                            "date": date_str,
+                            "numbers": main_nums,
+                            "bonus": bonus_num,
+                        }
+                    )
 
     except Exception as e:
-        print(f"Lỗi khi cào bảng {game_type}: {e}")
+        print(f"Lỗi khi cào dữ liệu {game_type}: {e}")
 
     return results
 
 
+def merge_and_sort(existing_items, new_items, max_limit=200):
+    """Gộp dữ liệu cũ và mới theo ngày, sắp xếp giảm dần và giữ tối đa 200 kỳ"""
+    merged_dict = {item["date"]: item for item in existing_items}
+    for item in new_items:
+        merged_dict[item["date"]] = item
+
+    # Sắp xếp ngày mới nhất lên đầu
+    sorted_items = sorted(
+        list(merged_dict.values()),
+        key=lambda x: datetime.strptime(x["date"], "%d/%m/%Y"),
+        reverse=True,
+    )
+    return sorted_items[:max_limit]
+
+
 def main():
     data = load_data()
-    updated = False
 
-    # 1. Cào Power 6/55 từ bảng 15 kỳ
-    print("Đang cào bảng Power 6/55...")
-    power_list = crawl_minhchinh_table(
+    # 1. Cào bảng 15 kỳ của Mega 6/45
+    print("--- Đang cào bảng Mega 6/45 ---")
+    mega_list = parse_minhchinh_table(
+        "https://www.minhchinh.com/truc-tiep-xo-so-tu-chon-mega-645.html",
+        "mega645",
+    )
+    print(f"Tìm thấy {len(mega_list)} kỳ Mega 6/45 từ Minh Chính.")
+
+    # 2. Cào bảng 15 kỳ của Power 6/55
+    print("--- Đang cào bảng Power 6/55 ---")
+    power_list = parse_minhchinh_table(
         "https://www.minhchinh.com/truc-tiep-xo-so-tu-chon-power-655.html",
         "power655",
     )
-    if power_list:
-        existing_dates = [x.get("date") for x in data.get("power655", [])]
-        for item in power_list:
-            if item["date"] not in existing_dates:
-                data.setdefault("power655", []).append(item)
-                updated = True
-                print(f"Thêm Power 6/55 ngày {item['date']}: {item['numbers']}")
+    print(f"Tìm thấy {len(power_list)} kỳ Power 6/55 từ Minh Chính.")
 
-    # 2. Cào Mega 6/45 từ bảng tương tự
-    print("Đang cào bảng Mega 6/45...")
-    mega_list = crawl_minhchinh_table(
-        "https://www.minhchinh.com/xo-so-dien-toan-mega-6-45.html", "mega645"
-    )
+    # Cập nhật và lưu lại
     if mega_list:
-        existing_dates = [x.get("date") for x in data.get("mega645", [])]
-        for item in mega_list:
-            if item["date"] not in existing_dates:
-                data.setdefault("mega645", []).append(item)
-                updated = True
-                print(f"Thêm Mega 6/45 ngày {item['date']}: {item['numbers']}")
+        data["mega645"] = merge_and_sort(data.get("mega645", []), mega_list)
+    if power_list:
+        data["power655"] = merge_and_sort(data.get("power655", []), power_list)
 
-    # Sắp xếp ngày mới nhất lên đầu và giữ lại 200 kỳ gần nhất
-    def sort_by_date(items):
-        return sorted(
-            items,
-            key=lambda x: datetime.strptime(x["date"], "%d/%m/%Y"),
-            reverse=True,
-        )[:200]
-
-    if data.get("power655"):
-        data["power655"] = sort_by_date(data["power655"])
-    if data.get("mega645"):
-        data["mega645"] = sort_by_date(data["mega645"])
-
-    if updated or not os.path.exists(DATA_FILE):
+    if mega_list or power_list:
         with open(DATA_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
-        print("Đã cập nhật file data.json thành công!")
+        print("\n=> Cập nhật file data.json thành công!")
+        print(f"Tổng số kỳ Mega 6/45 hiện có: {len(data['mega645'])}")
+        print(f"Tổng số kỳ Power 6/55 hiện có: {len(data['power655'])}")
     else:
-        print("Dữ liệu đã đầy đủ, không có kỳ mới.")
+        print("\n=> Không lấy được dữ liệu mới.")
 
 
 if __name__ == "__main__":
