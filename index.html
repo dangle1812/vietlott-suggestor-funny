@@ -26,15 +26,24 @@
 
   <div class="max-w-5xl mx-auto px-4 py-8">
     <!-- Header -->
-    <header class="text-center mb-8">
+    <header class="text-center mb-6">
       <h1 class="text-3xl sm:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-red-500 via-amber-400 to-yellow-500">
         VIETLOTT STATS & AI SUGGESTION
       </h1>
       <p class="text-slate-400 mt-2 text-sm sm:text-base">
-        Phân tích thống kê & Tối ưu hóa xác suất dựa trên 200 kỳ mở thưởng gần nhất
+        Phân tích thống kê & Tối ưu hóa xác suất dựa trên lịch sử mở thưởng
       </p>
-      <div id="data-status" class="inline-flex items-center gap-2 mt-3 px-3 py-1 rounded-full text-xs font-semibold bg-slate-800 text-slate-400 border border-slate-700">
-        <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Đang nạp dữ liệu...
+
+      <!-- Thanh trạng thái và nút cập nhật -->
+      <div class="flex flex-wrap items-center justify-center gap-3 mt-4">
+        <div id="data-status" class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-slate-900 text-slate-400 border border-slate-800">
+          <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Đang nạp dữ liệu...
+        </div>
+        
+        <!-- Nút làm mới dữ liệu ép buộc bỏ cache -->
+        <button onclick="reloadData(true)" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition active:scale-95">
+          <i id="sync-icon" class="fa-solid fa-rotate"></i> Làm mới dữ liệu
+        </button>
       </div>
     </header>
 
@@ -70,248 +79,4 @@
               <input type="radio" name="strategy" value="hot" class="peer sr-only">
               <div class="p-3 rounded-xl border border-slate-700 peer-checked:border-red-500 peer-checked:bg-red-500/10 text-center transition">
                 <div class="font-bold text-sm text-slate-200">Bắt Cầu Nóng</div>
-                <div class="text-xs text-slate-400 mt-1">Ưu tiên số ra nhiều nhất</div>
-              </div>
-            </label>
-            <label class="cursor-pointer">
-              <input type="radio" name="strategy" value="cold" class="peer sr-only">
-              <div class="p-3 rounded-xl border border-slate-700 peer-checked:border-red-500 peer-checked:bg-red-500/10 text-center transition">
-                <div class="font-bold text-sm text-slate-200">Lô Gan Phục Hồi</div>
-                <div class="text-xs text-slate-400 mt-1">Số lâu nhất chưa về</div>
-              </div>
-            </label>
-          </div>
-
-          <!-- Khung hiện số -->
-          <div id="suggested-box" class="min-h-[110px] bg-slate-950 border border-slate-800/80 rounded-xl p-4 flex flex-col items-center justify-center gap-3">
-            <div id="balls-container" class="flex flex-wrap gap-2.5 justify-center">
-              <span class="text-slate-500 text-sm italic">Bấm nút "Tạo Dãy Số" để nhận gợi ý</span>
-            </div>
-            <div id="stat-indicators" class="hidden text-xs text-slate-400 flex flex-wrap gap-4 justify-center"></div>
-          </div>
-        </div>
-
-        <button onclick="generateSuggestion()" class="w-full mt-6 py-3.5 bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 font-bold rounded-xl text-white shadow-lg transition active:scale-[0.99] flex items-center justify-center gap-2">
-          <i class="fa-solid fa-dice"></i> TẠO DÃY SỐ GỢI Ý
-        </button>
-      </div>
-
-      <!-- Cột thống kê Top Hot & Gan -->
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
-        <div>
-          <h2 class="text-lg font-bold text-slate-200 mb-4 flex items-center gap-2">
-            <i class="fa-solid fa-chart-simple text-red-500"></i> Top Tần Suất
-          </h2>
-          <div class="space-y-4 text-sm">
-            <div>
-              <div class="text-xs text-slate-400 mb-2 font-semibold uppercase tracking-wider">Top 5 Số Hay Về Nhất</div>
-              <div id="top-hot" class="flex gap-2"></div>
-            </div>
-            <div>
-              <div class="text-xs text-slate-400 mb-2 font-semibold uppercase tracking-wider">Top 5 Lô Gan (Lâu Chưa Về)</div>
-              <div id="top-cold" class="flex gap-2"></div>
-            </div>
-          </div>
-        </div>
-        <div class="mt-6 pt-4 border-t border-slate-800 text-xs text-slate-500">
-          Kỳ quay mới nhất: <span id="latest-draw-info" class="text-slate-300 font-medium">---</span>
-        </div>
-      </div>
-
-    </div>
-
-    <!-- Bảng Heatmap Ma trận -->
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
-      <h2 class="text-lg font-bold text-slate-200 mb-4 flex items-center gap-2">
-        <i class="fa-solid fa-table-cells text-yellow-500"></i> Ma Trận Tần Suất Toàn Bộ Bóng Số
-      </h2>
-      <div id="heatmap-grid" class="grid grid-cols-5 sm:grid-cols-9 md:grid-cols-11 gap-2 text-center text-xs"></div>
-    </div>
-
-  </div>
-
-  <script>
-    // Dữ liệu mẫu dự phòng khi chưa tải được data.json
-    const FALLBACK_DATA = {
-      mega645: [
-        { draw: "01250", date: "07/10/2026", numbers: [3, 12, 19, 25, 33, 42] },
-        { draw: "01249", date: "05/10/2026", numbers: [7, 14, 21, 28, 35, 41] },
-        { draw: "01248", date: "02/10/2026", numbers: [2, 11, 18, 26, 37, 44] },
-        { draw: "01247", date: "30/09/2026", numbers: [5, 16, 22, 29, 34, 40] },
-        { draw: "01246", date: "28/09/2026", numbers: [8, 15, 23, 31, 38, 45] }
-      ],
-      power655: [
-        { draw: "01120", date: "06/10/2026", numbers: [4, 15, 22, 33, 44, 51], bonus: 12 },
-        { draw: "01119", date: "03/10/2026", numbers: [6, 17, 24, 35, 46, 53], bonus: 29 },
-        { draw: "01118", date: "01/10/2026", numbers: [1, 12, 20, 31, 42, 50], bonus: 07 },
-        { draw: "01117", date: "29/09/2026", numbers: [9, 18, 27, 36, 45, 54], bonus: 33 },
-        { draw: "01116", date: "26/09/2026", numbers: [3, 14, 25, 37, 48, 55], bonus: 19 }
-      ]
-    };
-
-    let currentData = { mega645: [], power655: [] };
-    let currentGame = 'mega645';
-
-    async function init() {
-      const statusEl = document.getElementById('data-status');
-      try {
-        const res = await fetch('./data.json?v=' + Date.now());
-        if (res.ok) {
-          const json = await res.json();
-          if (json && (json.mega645?.length > 0 || json.power655?.length > 0)) {
-            currentData = json;
-            statusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span> Đã nạp ${currentData[currentGame]?.length || 0} kỳ dữ liệu thật`;
-            statusEl.className = statusEl.className.replace('text-slate-400', 'text-emerald-400 border-emerald-500/30');
-            renderView();
-            return;
-          }
-        }
-      } catch (e) {
-        console.warn("Chưa đọc được file data.json, chuyển sang dữ liệu dự phòng.");
-      }
-
-      // Nạp dữ liệu fallback nếu data.json rỗng
-      currentData = FALLBACK_DATA;
-      statusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-500"></span> Dữ liệu mẫu (Đang đợi GitHub Action cập nhật)`;
-      renderView();
-    }
-
-    function switchGame(game) {
-      currentGame = game;
-      const btnMega = document.getElementById('btn-tab-mega');
-      const btnPower = document.getElementById('btn-tab-power');
-      if (game === 'mega645') {
-        btnMega.className = "px-6 py-2.5 rounded-xl font-bold transition flex items-center gap-2 bg-red-600 text-white shadow-lg shadow-red-600/30";
-        btnPower.className = "px-6 py-2.5 rounded-xl font-bold transition flex items-center gap-2 bg-slate-800 text-slate-300 hover:bg-slate-700";
-      } else {
-        btnPower.className = "px-6 py-2.5 rounded-xl font-bold transition flex items-center gap-2 bg-amber-600 text-white shadow-lg shadow-amber-600/30";
-        btnMega.className = "px-6 py-2.5 rounded-xl font-bold transition flex items-center gap-2 bg-slate-800 text-slate-300 hover:bg-slate-700";
-      }
-      renderView();
-    }
-
-    function getStats() {
-      const maxNum = currentGame === 'mega645' ? 45 : 55;
-      const draws = currentData[currentGame] || [];
-      const freq = Array(maxNum + 1).fill(0);
-      const gap = Array(maxNum + 1).fill(draws.length > 0 ? draws.length : 10);
-
-      draws.forEach((draw, dIndex) => {
-        (draw.numbers || []).forEach(num => {
-          if (num <= maxNum) {
-            freq[num]++;
-            if (gap[num] === (draws.length > 0 ? draws.length : 10)) gap[num] = dIndex;
-          }
-        });
-      });
-
-      const list = [];
-      for (let i = 1; i <= maxNum; i++) {
-        list.push({ num: i, freq: freq[i], gap: gap[i] });
-      }
-      return { list, draws, maxNum };
-    }
-
-    function renderView() {
-      const { list, draws, maxNum } = getStats();
-      const latestEl = document.getElementById('latest-draw-info');
-      if (draws.length > 0) {
-        latestEl.innerText = `Kỳ #${draws[0].draw} (${draws[0].date})`;
-      } else {
-        latestEl.innerText = "Dữ liệu mẫu";
-      }
-
-      const hotList = [...list].sort((a, b) => b.freq - a.freq).slice(0, 5);
-      const coldList = [...list].sort((a, b) => b.gap - a.gap).slice(0, 5);
-
-      const ballClass = currentGame === 'mega645' ? 'ball-mega' : 'ball-power';
-      document.getElementById('top-hot').innerHTML = hotList.map(item => `
-        <div class="text-center">
-          <div class="ball ${ballClass} text-xs w-8 h-8">${String(item.num).padStart(2, '0')}</div>
-          <div class="text-[10px] text-slate-400 mt-1">${item.freq} lần</div>
-        </div>
-      `).join('');
-
-      document.getElementById('top-cold').innerHTML = coldList.map(item => `
-        <div class="text-center">
-          <div class="ball bg-slate-800 border border-slate-700 text-xs w-8 h-8">${String(item.num).padStart(2, '0')}</div>
-          <div class="text-[10px] text-amber-500 mt-1">${item.gap} kỳ</div>
-        </div>
-      `).join('');
-
-      const maxFreq = Math.max(...list.map(x => x.freq), 1);
-      const grid = document.getElementById('heatmap-grid');
-      grid.innerHTML = list.map(item => {
-        const intensity = Math.min(Math.floor((item.freq / maxFreq) * 100), 100);
-        return `
-          <div class="p-2 rounded-lg bg-slate-950 border border-slate-800 flex flex-col items-center">
-            <span class="font-bold text-slate-200">${String(item.num).padStart(2, '0')}</span>
-            <span class="text-[10px] text-slate-400 mt-0.5">${item.freq} lần</span>
-            <div class="w-full bg-slate-800 h-1 rounded mt-1.5 overflow-hidden">
-              <div class="bg-amber-500 h-full" style="width: ${intensity}%"></div>
-            </div>
-          </div>
-        `;
-      }).join('');
-    }
-
-    function generateSuggestion() {
-      const { list, maxNum } = getStats();
-      const strategy = document.querySelector('input[name="strategy"]:checked').value;
-      let selected = [];
-
-      if (strategy === 'hot') {
-        const pool = [...list].sort((a, b) => b.freq - a.freq).slice(0, 15).map(x => x.num);
-        selected = pickRandom(pool, 6);
-      } else if (strategy === 'cold') {
-        const pool = [...list].sort((a, b) => b.gap - a.gap).slice(0, 15).map(x => x.num);
-        selected = pickRandom(pool, 6);
-      } else {
-        let attempts = 0;
-        while (attempts < 500) {
-          attempts++;
-          const temp = pickRandom(Array.from({length: maxNum}, (_, i) => i + 1), 6);
-          const sum = temp.reduce((a, b) => a + b, 0);
-          const evens = temp.filter(x => x % 2 === 0).length;
-          const sumMin = maxNum === 45 ? 100 : 130;
-          const sumMax = maxNum === 45 ? 165 : 210;
-          if (sum >= sumMin && sum <= sumMax && (evens === 3 || evens === 2 || evens === 4)) {
-            selected = temp;
-            break;
-          }
-        }
-        if (selected.length === 0) selected = pickRandom(Array.from({length: maxNum}, (_, i) => i + 1), 6);
-      }
-
-      selected.sort((a, b) => a - b);
-      renderSuggestedBalls(selected);
-    }
-
-    function pickRandom(arr, count) {
-      const shuffled = [...arr].sort(() => 0.5 - Math.random());
-      return shuffled.slice(0, count);
-    }
-
-    function renderSuggestedBalls(numbers) {
-      const container = document.getElementById('balls-container');
-      const ballClass = currentGame === 'mega645' ? 'ball-mega' : 'ball-power';
-      container.innerHTML = numbers.map(n => `
-        <div class="ball ${ballClass} text-base scale-105 animate-bounce" style="animation-duration: 0.6s">
-          ${String(n).padStart(2, '0')}
-        </div>
-      `).join('');
-
-      const sum = numbers.reduce((a, b) => a + b, 0);
-      const evens = numbers.filter(x => x % 2 === 0).length;
-      const statEl = document.getElementById('stat-indicators');
-      statEl.classList.remove('hidden');
-      statEl.innerHTML = `
-        <span><b class="text-slate-300">Tổng:</b> ${sum}</span>
-        <span><b class="text-slate-300">Chẵn/Lẻ:</b> ${evens}/${6 - evens}</span>
-      `;
-    }
-
-    window.addEventListener('DOMContentLoaded', init);
-  </script>
-</body>
-</html>
+                <div class="text-
