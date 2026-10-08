@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vietlott AI Predictor - Mega 6/45 & Power 6/55 Analytics</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Google Fonts Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            mega: {
+              DEFAULT: '#E11D48', // Ruby red
+              dark: '#9F1239',
+              light: '#FFE4E6',
+            },
+            power: {
+              DEFAULT: '#F59E0B', // Amber gold
+              dark: '#B45309',
+              light: '#FEF3C7',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* 3D Ball styling */
+    .ball {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 9999px;
+      font-weight: 800;
+      box-shadow: inset -3px -3px 7px rgba(0, 0, 0, 0.4), inset 3px 3px 5px rgba(255, 255, 255, 0.6), 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      user-select: none;
+    }
+    .ball:hover {
+      transform: translateY(-2px) scale(1.05);
+    }
+    .ball-mega {
+      background: radial-gradient(circle at 35% 35%, #FB7185, #E11D48 60%, #881337);
+      color: white;
+    }
+    .ball-power {
+      background: radial-gradient(circle at 35% 35%, #FDE68A, #F59E0B 60%, #78350F);
+      color: #1F2937;
+    }
+    .ball-bonus {
+      background: radial-gradient(circle at 35% 35%, #F43F5E, #991B1B 70%, #450A0A);
+      color: white;
+      box-shadow: 0 0 14px rgba(225, 29, 72, 0.6), inset -3px -3px 7px rgba(0, 0, 0, 0.4), inset 3px 3px 5px rgba(255, 255, 255, 0.6);
+    }
+    .ball-ghost {
+      background: #F3F4F6;
+      border: 2px dashed #CBD5E1;
+      color: #94A3B8;
+      box-shadow: none;
+    }
+    /* Custom scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #CBD5E1;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94A3B8;
+    }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col font-sans selection:bg-rose-500 selection:text-white">
+
+  <header class="border-b border-slate-800 bg-slate-950/80 backdrop-blur sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center space-x-3">
+        <div id="gameIconBadge" class="w-10 h-10 rounded-xl flex items-center justify-center bg-rose-600 shadow-lg shadow-rose-900/40 text-white font-extrabold text-lg">
+          M
+        </div>
+        <div>
+          <h1 class="text-lg font-black tracking-tight flex items-center gap-2">
+            VIETLOTT ANALYTICS <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">v2.1</span>
+          </h1>
+          <p class="text-xs text-slate-400">Gợi ý thuật toán &amp; Thống kê kỳ quay</p>
+        </div>
+      </div>
+
+      <!-- Mode Selector -->
+      <div class="flex bg-slate-900 p-1 rounded-xl border border-slate-800 shadow-inner">
+        <button id="btnSelectMega" onclick="switchGameMode('mega')" class="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all bg-rose-600 text-white shadow-md">
+          <i data-lucide="sparkles" class="w-3.5 h-3.5"></i> MEGA 6/45
+        </button>
+        <button id="btnSelectPower" onclick="switchGameMode('power')" class="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold text-slate-400 hover:text-slate-200 transition-all">
+          <i data-lucide="zap" class="w-3.5 h-3.5"></i> POWER 6/55
+        </button>
+      </div>
+
+      <!-- Quick Action Buttons -->
+      <div class="flex items-center gap-2">
+        <button onclick="openHistoryModal()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-xs font-medium text-slate-300 hover:text-white transition-colors">
+          <i data-lucide="database" class="w-3.5 h-3.5"></i> Quản lý dữ liệu
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Notification Banner / Toast -->
+  <div id="toast" class="fixed bottom-6 right-6 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none bg-slate-800 text-slate-100 border border-slate-700 px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3">
+    <div id="toastIcon" class="text-emerald-400"><i data-lucide="check-circle" class="w-5 h-5"></i></div>
+    <span id="toastMsg" class="text-sm font-medium">Đã cập nhật!</span>
+  </div>
+
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+    <!-- Hero / Generator Section -->
+    <section class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <!-- Left Panel: Engine and Controls -->
+      <div class="lg:col-span-5 bg-slate-950/70 border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xl flex flex-col justify-between">
+        <div class="space-y-5">
+          <div class="flex justify-between items-center pb-3 border-b border-slate-800/80">
+            <div>
+              <h2 class="text-sm font-bold tracking-wide uppercase text-slate-400">Bộ Sinh Số Thông Minh</h2>
+              <p class="text-xs text-slate-500">Thuật toán xác suất kết hợp thống kê kỳ quay</p>
+            </div>
+            <span id="currentStatusTag" class="px-2.5 py-1 rounded-md text-xs font-extrabold uppercase bg-rose-500/20 text-rose-400 border border-rose-500/30">
+              Mega 6/45
+            </span>
+          </div>
+
+          <!-- Strategy Selection -->
+          <div class="space-y-2">
+            <label class="text-xs font-bold text-slate-300 uppercase tracking-wider">Chiến lược đề xuất</label>
+            <div class="grid grid-cols-2 gap-2 text-xs">
+              <label class="cursor-pointer border border-slate-800 rounded-xl p-2.5 bg-slate-900/60 hover:border-slate-700 flex items-start gap-2.5 has-[:checked]:border-rose-500 has-[:checked]:bg-rose-950/20 transition-all">
+                <input type="radio" name="strategy" value="balanced" checked class="mt-0.5 accent-rose-500">
+                <div>
+                  <div class="font-bold text-slate-200">Cân Bằng Tiêu Chuẩn</div>
+                  <div class="text-[10px] text-slate-400">Chẵn-Lẻ 3:3/4:2, tổng chuông Gauss</div>
+                </div>
+              </label>
+
+              <label class="cursor-pointer border border-slate-800 rounded-xl p-2.5 bg-slate-900/60 hover:border-slate-700 flex items-start gap-2.5 has-[:checked]:border-rose-500 has-[:checked]:bg-rose-950/20 transition-all">
+                <input type="radio" name="strategy" value="hot" class="mt-0.5 accent-rose-500">
+                <div>
+                  <div class="font-bold text-slate-200">Ưu Tiên Số Nóng (Hot)</div>
+                  <div class="text-[10px] text-slate-400">Trọng số cao số về nhiều nhất</div>
+                </div>
+              </label>
+
+              <label class="cursor-pointer border border-slate-800 rounded-xl p-2.5 bg-slate-900/60 hover:border-slate-700 flex items-start gap-2.5 has-[:checked]:border-rose-500 has-[:checked]:bg-rose-950/20 transition-all">
+                <input type="radio" name="strategy" value="cold" class="mt-0.5 accent-rose-500">
+                <div>
+                  <div class="font-bold text-slate-200">Bắt Cầu Lô Gan (Cold)</div>
+                  <div class="text-[10px] text-slate-400">Chọn số lâu chưa xuất hiện</div>
+                </div>
+              </label>
+
+              <label class="cursor-pointer border border-slate-800 rounded-xl p-2.5 bg-slate-900/60 hover:border-slate-700 flex items-start gap-2.5 has-[:checked]:border-rose-500 has-[:checked]:bg-rose-950/20 transition-all">
+                <input type="radio" name="strategy" value="random" class="mt-0.5 accent-rose-500">
+                <div>
+                  <div class="font-bold text-slate-200">Ngẫu Nhiên Thuần Túy</div>
+                  <div class="text-[10px] text-slate-400">Quick-Pick không can thiệp</div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <!-- Locks & Exclusions -->
+          <div class="space-y-3 pt-2">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-slate-300 uppercase tracking-wider">Tuỳ chỉnh số cá nhân</span>
+              <button onclick="openCustomPickerModal()" class="text-xs text-rose-400 hover:text-rose-300 font-medium flex items-center gap-1">
+                <i data-lucide="sliders-horizontal" class="w-3 h-3"></i> Thiết lập bộ lọc
+              </button>
+            </div>
+            
+            <div class="bg-slate-900/90 rounded-xl p-3 border border-slate-800 text-xs space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="text-slate-400 flex items-center gap-1.5"><i data-lucide="lock" class="w-3.5 h-3.5 text-amber-400"></i> Số khoá (Cố định):</span>
+                <span id="lockedListLabel" class="font-mono font-bold text-amber-300">Không có</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-slate-400 flex items-center gap-1.5"><i data-lucide="ban" class="w-3.5 h-3.5 text-rose-400"></i> Số loại trừ (Bỏ qua):</span>
+                <span id="excludedListLabel" class="font-mono font-bold text-rose-300">Không có</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Action Trigger -->
+        <div class="pt-6">
+          <button id="btnGenerate" onclick="generateTicket()" class="w-full py-4 px-6 rounded-xl font-extrabold text-base tracking-wide flex items-center justify-center gap-2 bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-500 hover:to-rose-600 text-white shadow-lg shadow-rose-900/50 active:scale-[0.98] transition-all">
+            <i data-lucide="dices" class="w-5 h-5"></i> TẠO BỘ SỐ GỢI Ý
+          </button>
+        </div>
+      </div>
+
+      <!-- Right Panel: Display Ticket and Metrics -->
+      <div class="lg:col-span-7 bg-slate-950/70 border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xl flex flex-col justify-between">
+        <div>
+          <div class="flex justify-between items-center pb-4 border-b border-slate-800">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+              <i data-lucide="award" class="w-4 h-4 text-amber-400"></i> Dãy số vừa đề xuất
+            </h3>
+            <button onclick="copyCurrentNumbers()" id="btnCopyNumbers" class="text-xs px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg flex items-center gap-1.5 transition-colors border border-slate-700">
+              <i data-lucide="copy" class="w-3.5 h-3.5"></i> Sao chép
+            </button>
+          </div>
+
+          <!-- Ball Container -->
+          <div class="my-8 py-6 px-4 bg-slate-900/50 border border-slate-800/80 rounded-2xl flex flex-wrap items-center justify-center gap-3 sm:gap-4 min-h-[120px]">
+            <div id="ballsDisplayArea" class="flex flex-wrap items-center justify-center gap-3 sm:gap-4">
+              <!-- Rendered via JS -->
+            </div>
+          </div>
+
+          <!-- Quick Metrics Bar -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div class="bg-slate-900 p-3 rounded-xl border border-slate-800/70 text-center">
+              <span class="text-[11px] font-semibold text-slate-400 block mb-1">Tổng điểm (Sum)</span>
+              <span id="metricSum" class="text-base font-extrabold text-white">--</span>
+              <span id="metricSumNote" class="text-[10px] text-slate-500 block">Chuẩn: 105 - 175</span>
+            </div>
+
+            <div class="bg-slate-900 p-3 rounded-xl border border-slate-800/70 text-center">
+              <span class="text-[11px] font-semibold text-slate-400 block mb-1">Tỉ lệ Chẵn / Lẻ</span>
+              <span id="metricEvenOdd" class="text-base font-extrabold text-white">--</span>
+              <span class="text-[10px] text-slate-500 block">Khuyên dùng: 3:3, 4:2</span>
+            </div>
+
+            <div class="bg-slate-900 p-3 rounded-xl border border-slate-800/70 text-center">
+              <span class="text-[11px] font-semibold text-slate-400 block mb-1">Tỉ lệ Thấp / Cao</span>
+              <span id="metricLowHigh" class="text-base font-extrabold text-white">--</span>
+              <span class="text-[10px] text-slate-500 block">Nửa đầu : Nửa sau</span>
+            </div>
+
+            <div class="bg-slate-900 p-3 rounded-xl border border-slate-800/70 text-center">
+              <span class="text-[11px] font-semibold text-slate-400 block mb-1">Điểm Cân Bằng</span>
+              <span id="metricBalanceScore" class="text-base font-extrabold text-emerald-400">--</span>
+              <span class="text-[10px] text-slate-500 block">Thuật toán đánh giá</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Strategy Description Tip -->
+        <div class="mt-4 p-3 bg-slate-900/60 rounded-xl border border-slate-800/60 flex items-start gap-2.5 text-xs text-slate-400">
+          <i data-lucide="info" class="w-4 h-4 text-cyan-400 shrink-0 mt-0.5"></i>
+          <span id="strategyDescription">Gợi ý phân bổ cân bằng giảm thiểu các mẫu số bất thường (chuỗi số liên tục hoặc dồn về 1 cụm).</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Analytics and Heatmap Tab Section -->
+    <section class="bg-slate-950/70 border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xl space-y-5">
+      <div class="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-800">
+        <div>
+          <h2 class="text-base font-bold text-white flex items-center gap-2">
+            <i data-lucide="bar-chart-3" class="w-5 h-5 text-rose-500"></i> Bản Đồ Nhiệt &amp; Thống Kê Tần Suất
+          </h2>
+          <p class="text-xs text-slate-400">Dựa trên <span id="historicalDrawCount" class="font-bold text-slate-200">20</span> kỳ quay gần nhất trong cơ sở dữ liệu</p>
+        </div>
+
+        <div class="flex items-center gap-2 text-xs">
+          <span class="flex items-center gap-1.5 text-slate-400">
+            <span class="w-3 h-3 rounded-full bg-rose-500 inline-block"></span> Rất cao
+          </span>
+          <span class="flex items-center gap-1.5 text-slate-400">
+            <span class="w-3 h-3 rounded-full bg-amber-500 inline-block"></span> Trung bình
+          </span>
+          <span class="flex items-center gap-1.5 text-slate-400">
+            <span class="w-3 h-3 rounded-full bg-slate-700 inline-block"></span> Thấp / Gan
+          </span>
+        </div>
+      </div>
+
+      <!-- Top Hot and Cold Lists -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Hot 8 -->
+        <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-800">
+          <span class="text-xs font-bold text-rose-400 uppercase tracking-wider flex items-center gap-1.5 mb-3">
+            <i data-lucide="flame" class="w-4 h-4"></i> Top Số Về Nhiều Nhất (Hot Numbers)
+          </span>
+          <div id="hotNumbersList" class="flex flex-wrap gap-2">
+            <!-- Injected via JS -->
+          </div>
+        </div>
+
+        <!-- Cold 8 -->
+        <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-800">
+          <span class="text-xs font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-1.5 mb-3">
+            <i data-lucide="snowflake" class="w-4 h-4"></i> Top Số Lâu Chưa Ra (Lô Gan / Cold)
+          </span>
+          <div id="coldNumbersList" class="flex flex-wrap gap-2">
+            <!-- Injected via JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Interactive Number Matrix (Heatmap) -->
+      <div>
+        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Toàn Bộ Bảng Số (Nhấp để Khóa / Mở Khóa)</h3>
+        <div id="heatmapGrid" class="grid grid-cols-5 sm:grid-cols-9 md:grid-cols-11 lg:grid-cols-15 gap-2">
+          <!-- Numbers generated via JS -->
+        </div>
+      </div>
+    </section>
+
+    <!-- Generated Session History -->
+    <section class="bg-slate-950/70 border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xl space-y-4">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <h2 class="text-sm font-bold text-white flex items-center gap-2">
+          <i data-lucide="history" class="w-4 h-4 text-slate-400"></i> Lịch Sử Vé Đã Tạo Trong Phiên
+        </h2>
+        <button onclick="clearHistoryTickets()" class="text-xs text-slate-400 hover:text-rose-400 transition-colors flex items-center gap-1">
+          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Xoá lịch sử
+        </button>
+      </div>
+
+      <div id="sessionHistoryList" class="space-y-2 max-h-64 overflow-y-auto pr-1">
+        <div class="text-xs text-slate-500 italic py-4 text-center">Chưa có vé nào được tạo trong phiên này.</div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Modal: Custom Filter / Number Lock -->
+  <div id="customPickerModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+      <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+        <h3 class="text-sm font-bold text-white flex items-center gap-2">
+          <i data-lucide="sliders-horizontal" class="w-4 h-4 text-rose-500"></i> Thiết Lập Số Khoá &amp; Loại Trừ
+        </h3>
+        <button onclick="closeCustomPickerModal()" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      
+      <p class="text-xs text-slate-400">
+        - <strong>Số khoá (Tối đa 3 số):</strong> Bộ số được tạo luôn chứa những số này.<br>
+        - <strong>Số loại trừ:</strong> Bộ số sẽ không bao giờ xuất hiện các số này.
+      </p>
+
+      <div class="space-y-3">
+        <div>
+          <label class="text-xs font-semibold text-amber-300 block mb-1.5">Số may mắn muốn KHOÁ (Nhập số cách nhau dấu phẩy, vd: 7, 18, 23):</label>
+          <input id="inputLockNumbers" type="text" placeholder="Ví dụ: 9, 15" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500">
+        </div>
+
+        <div>
+          <label class="text-xs font-semibold text-rose-400 block mb-1.5">Số muốn LOẠI TRỪ (Cách nhau dấu phẩy, vd: 13, 44):</label>
+          <input id="inputExcludeNumbers" type="text" placeholder="Ví dụ: 13, 24" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-rose-500">
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-3 border-t border-slate-800">
+        <button onclick="closeCustomPickerModal()" class="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700">Đóng</button>
+        <button onclick="saveCustomPickers()" class="px-5 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white">Lưu Thiết Lập</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Historical Database Manager -->
+  <div id="historyDataModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] flex flex-col">
+      <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+        <h3 class="text-sm font-bold text-white flex items-center gap-2">
+          <i data-lucide="database" class="w-4 h-4 text-cyan-400"></i> Quản Lý Dữ Liệu Kỳ Quay
+        </h3>
+        <button onclick="closeHistoryModal()" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto space-y-4 pr-1 text-xs text-slate-300">
+        <p>Ứng dụng chạy hoàn toàn tĩnh trên trình duyệt thông qua <code>localStorage</code>. Bạn có thể chèn kết quả kỳ quay mới nhất để thuật toán cập nhật chính xác hơn.</p>
+        
+        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
+          <span class="font-bold text-white block">Thêm Kỳ Quay Mới Cho <span id="modalGameTypeName" class="text-rose-400 uppercase">Mega 6/45</span>:</span>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <input id="inputDrawId" type="text" placeholder="Mã kỳ (VD: #01280)" class="bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white">
+            <input id="inputDrawDate" type="date" class="bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white">
+            <input id="inputDrawNumbers" type="text" placeholder="6 số: 02,14,25,31,40,42" class="bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white">
+          </div>
+          <div id="bonusInputRow" class="hidden">
+            <input id="inputDrawBonus" type="number" placeholder="Số đặc biệt Bonus (Power 6/55)" class="bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white w-full">
+          </div>
+          <button onclick="addNewDrawRecord()" class="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-lg transition-colors">
+            + Lưu Kỳ Quay Này
+          </button>
+        </div>
+
+        <div>
+          <span class="font-bold text-white block mb-1">Dữ liệu thô (JSON):</span>
+          <textarea id="rawJsonEditor" rows="6" class="w-full font-mono text-[11px] bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-300 focus:outline-none"></textarea>
+        </div>
+      </div>
+
+      <div class="flex justify-between items-center gap-2 pt-3 border-t border-slate-800">
+        <button onclick="resetDefaultMockData()" class="px-3 py-1.5 text-xs text-rose-400 hover:underline">Khôi phục mặc định ban đầu</button>
+        <div class="flex gap-2">
+          <button onclick="closeHistoryModal()" class="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700">Đóng</button>
+          <button onclick="saveJsonData()" class="px-5 py-2 rounded-xl text-xs font-bold bg-cyan-600 hover:bg-cyan-500 text-white">Lưu JSON</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="border-t border-slate-800 py-6 text-center text-xs text-slate-500">
+    <div class="max-w-7xl mx-auto px-4">
+      <p>Ứng dụng mã nguồn mở tĩnh, chạy trên GitHub Pages. Mọi thuật toán mang tính chất thống kê tham khảo &amp; giải trí toán học.</p>
+      <p class="mt-1">Xổ số là trò chơi có yếu tố may rủi độc lập. Hãy chơi có trách nhiệm!</p>
+    </div>
+  </footer>
+
+  <script>
+    /* Default Datasets */
+    const DEFAULT_MEGA_DATA = [
+      { id: "01280", date: "2026-10-04", numbers: [5, 12, 19, 27, 33, 41] },
+      { id: "01279", date: "2026-10-02", numbers: [8, 14, 22, 23, 39, 44] },
+      { id: "01278", date: "2026-09-30", numbers: [3, 11, 15, 29, 36, 45] },
+      { id: "01277", date: "2026-09-27", numbers: [1, 9, 21, 30, 32, 40] },
+      { id: "01276", date: "2026-09-25", numbers: [7, 12, 18, 25, 34, 42] },
+      { id: "01275", date: "2026-09-23", numbers: [4, 16, 20, 27, 33, 38] },
+      { id: "01274", date: "2026-09-20", numbers: [12, 19, 22, 31, 35, 43] },
+      { id: "01273", date: "2026-09-18", numbers: [2, 14, 18, 26, 29, 41] },
+      { id: "01272", date: "2026-09-16", numbers: [6, 10, 23, 34, 37, 44] },
+      { id: "01271", date: "2026-09-13", numbers: [8, 12, 15, 28, 30, 39] },
+      { id: "01270", date: "2026-09-11", numbers: [5, 17, 24, 27, 33, 45] },
+      { id: "01269", date: "2026-09-09", numbers: [3, 11, 21, 32, 36, 40] },
+      { id: "01268", date: "2026-09-06", numbers: [9, 13, 18, 22, 35, 42] },
+      { id: "01267", date: "2026-09-04", numbers: [1, 7, 19, 25, 31, 38] },
+      { id: "01266", date: "2026-09-02", numbers: [14, 20, 27, 33, 39, 43] }
+    ];
+
+    const DEFAULT_POWER_DATA = [
+      { id: "01095", date: "2026-10-06", numbers: [4, 13, 22, 37, 45, 53], bonus: 18 },
+      { id: "01094", date: "2026-10-03", numbers: [9, 17, 28, 33, 49, 52], bonus: 07 },
+      { id: "01093", date: "2026-10-01", numbers: [3, 12, 25, 31, 44, 55], bonus: 21 },
+      { id: "01092", date: "2026-09-29", numbers: [10, 18, 26, 38, 42, 51], bonus: 15 },
+      { id: "01091", date: "2026-09-26", numbers: [2, 14, 23, 35, 47, 50], bonus: 33 },
+      { id: "01090", date: "2026-09-24", numbers: [6, 15, 29, 36, 41, 54], bonus: 09 },
+      { id: "01089", date: "2026-09-22", numbers: [11, 20, 31, 40, 48, 52], bonus: 27 },
+      { id: "01088", date: "2026-09-19", numbers: [7, 16, 27, 34, 43, 53], bonus: 04 },
+      { id: "01087", date: "2026-09-17", numbers: [1, 13, 22, 32, 45, 55], bonus: 39 },
+      { id: "01086", date: "2026-09-15", numbers: [5, 19, 24, 37, 46, 49], bonus: 12 },
+      { id: "01085", date: "2026-09-12", numbers: [8, 17, 30, 39, 44, 51], bonus: 23 },
+      { id: "01084", date: "2026-09-10", numbers: [12, 21, 28, 35, 47, 54], bonus: 08 },
+      { id: "01083", date: "2026-09-08", numbers: [4, 18, 25, 33, 42, 50], bonus: 16 }
+    ];
+
+    /* Application State */
+    let currentMode = 'mega'; // 'mega' or 'power'
+    let lockedNumbers = [];
+    let excludedNumbers = [];
+    let currentGeneratedTicket = null;
+    let sessionHistory = [];
+
+    // LocalStorage helper
+    function getStoredData(key, fallback) {
+      const data = localStorage.getItem(key);
+      if (!data) return fallback;
+      try {
+        return JSON.parse(data);
+      } catch (e) {
+        return fallback;
+      }
+    }
+
+    function setStoredData(key, value) {
+      localStorage.setItem(key, JSON.stringify(value));
+    }
+
+    function getHistoryData() {
+      const key = currentMode === 'mega' ? 'vlt_mega_data' : 'vlt_power_data';
+      const fallback = currentMode === 'mega' ? DEFAULT_MEGA_DATA : DEFAULT_POWER_DATA;
+      return getStoredData(key, fallback);
+    }
+
+    function switchGameMode(mode) {
+      currentMode = mode;
+      lockedNumbers = [];
+      excludedNumbers = [];
+      updateLockExcludeLabels();
+
+      const btnMega = document.getElementById('btnSelectMega');
+      const btnPower = document.getElementById('btnSelectPower');
+      const badge = document.getElementById('gameIconBadge');
+      const statusTag = document.getElementById('currentStatusTag');
+      const btnGen = document.getElementById('btnGenerate');
+
+      if (mode === 'mega') {
+        btnMega.className = 'flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all bg-rose-600 text-white shadow-md';
+        btnPower.className = 'flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold text-slate-400 hover:text-slate-200 transition-all';
+        badge.className = 'w-10 h-10 rounded-xl flex items-center justify-center bg-rose-600 shadow-lg shadow-rose-900/40 text-white font-extrabold text-lg';
+        badge.innerText = 'M';
+        statusTag.className = 'px-2.5 py-1 rounded-md text-xs font-extrabold uppercase bg-rose-500/20 text-rose-400 border border-rose-500/30';
+        statusTag.innerText = 'Mega 6/45';
+        btnGen.className = 'w-full py-4 px-6 rounded-xl font-extrabold text-base tracking-wide flex items-center justify-center gap-2 bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-500 hover:to-rose-600 text-white shadow-lg shadow-rose-900/50 active:scale-[0.98] transition-all';
+        document.getElementById('metricSumNote').innerText = 'Chuẩn: 105 - 175';
+      } else {
+        btnPower.className = 'flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all bg-amber-500 text-slate-950 shadow-md';
+        btnMega.className = 'flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold text-slate-400 hover:text-slate-200 transition-all';
+        badge.className = 'w-10 h-10 rounded-xl flex items-center justify-center bg-amber-500 shadow-lg shadow-amber-900/40 text-slate-950 font-extrabold text-lg';
+        badge.innerText = 'P';
+        statusTag.className = 'px-2.5 py-1 rounded-md text-xs font-extrabold uppercase bg-amber-500/20 text-amber-400 border border-amber-500/30';
+        statusTag.innerText = 'Power 6/55';
+        btnGen.className = 'w-full py-4 px-6 rounded-xl font-extrabold text-base tracking-wide flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 shadow-lg shadow-amber-900/50 active:scale-[0.98] transition-all';
+        document.getElementById('metricSumNote').innerText = 'Chuẩn: 130 - 210';
+      }
+
+      refreshAnalyticsView();
+      generateTicket();
+    }
+
+    function calculateStatistics() {
+      const maxNumber = currentMode === 'mega' ? 45 : 55;
+      const history = getHistoryData();
+      const frequencyMap = {};
+      const lastAppearanceMap = {};
+
+      for (let i = 1; i <= maxNumber; i++) {
+        frequencyMap[i] = 0;
+        lastAppearanceMap[i] = 999; // Default large gap
+      }
+
+      history.forEach((draw, drawIndex) => {
+        draw.numbers.forEach(num => {
+          if (num <= maxNumber) {
+            frequencyMap[num] = (frequencyMap[num] || 0) + 1;
+            if (lastAppearanceMap[num] === 999) {
+              lastAppearanceMap[num] = drawIndex; // distance in draws
+            }
+          }
+        });
+      });
+
+      // Sorted by count descending
+      const sortedByFreq = Object.keys(frequencyMap)
+        .map(n => parseInt(n))
+        .sort((a, b) => frequencyMap[b] - frequencyMap[a]);
+
+      // Sorted by gap descending (Coldest)
+      const sortedByGap = Object.keys(lastAppearanceMap)
+        .map(n => parseInt(n))
+        .sort((a, b) => lastAppearanceMap[b] - lastAppearanceMap[a]);
+
+      return {
+        maxNumber,
+        totalDraws: history.length,
+        frequencyMap,
+        lastAppearanceMap,
+        hotNumbers: sortedByFreq.slice(0, 8),
+        coldNumbers: sortedByGap.slice(0, 8)
+      };
+    }
+
+    function refreshAnalyticsView() {
+      const stats = calculateStatistics();
+      document.getElementById('historicalDrawCount').innerText = stats.totalDraws;
+
+      // Render Hot Numbers
+      const hotContainer = document.getElementById('hotNumbersList');
+      hotContainer.innerHTML = '';
+      stats.hotNumbers.forEach(n => {
+        const count = stats.frequencyMap[n];
+        const span = document.createElement('div');
+        span.className = 'flex items-center gap-1.5 bg-slate-950 px-2.5 py-1.5 rounded-lg border border-rose-900/40';
+        span.innerHTML = `
+          <span class="w-6 h-6 rounded-full ${currentMode === 'mega' ? 'bg-rose-600' : 'bg-amber-500 text-slate-900 font-bold'} text-xs flex items-center justify-center font-bold">${formatNum(n)}</span>
+          <span class="text-[10px] text-slate-400 font-medium">${count} lần</span>
+        `;
+        hotContainer.appendChild(span);
+      });
+
+      // Render Cold Numbers
+      const coldContainer = document.getElementById('coldNumbersList');
+      coldContainer.innerHTML = '';
+      stats.coldNumbers.forEach(n => {
+        const gap = stats.lastAppearanceMap[n] === 999 ? 'N/A' : `${stats.lastAppearanceMap[n]} kỳ`;
+        const span = document.createElement('div');
+        span.className = 'flex items-center gap-1.5 bg-slate-950 px-2.5 py-1.5 rounded-lg border border-cyan-900/40';
+        span.innerHTML = `
+          <span class="w-6 h-6 rounded-full bg-slate-800 text-cyan-300 text-xs flex items-center justify-center font-bold border border-cyan-700/50">${formatNum(n)}</span>
+          <span class="text-[10px] text-slate-400 font-medium">Gan: ${gap}</span>
+        `;
+        coldContainer.appendChild(span);
+      });
+
+      // Render Matrix Grid
+      const grid = document.getElementById('heatmapGrid');
+      grid.innerHTML = '';
+      const maxFreq = Math.max(...Object.values(stats.frequencyMap), 1);
+
+      for (let i = 1; i <= stats.maxNumber; i++) {
+        const count = stats.frequencyMap[i];
+        const intensity = count / maxFreq;
+
+        let bgStyle = 'bg-slate-900 text-slate-400 border-slate-800';
+        if (intensity >= 0.75) {
+          bgStyle = currentMode === 'mega' ? 'bg-rose-950/70 text-rose-300 border-rose-700/60 font-bold' : 'bg-amber-950/70 text-amber-300 border-amber-700/60 font-bold';
+        } else if (intensity >= 0.4) {
+          bgStyle = 'bg-slate-800/80 text-slate-200 border-slate-700 font-medium';
+        }
+
+        const isLocked = lockedNumbers.includes(i);
+        const isExcluded = excludedNumbers.includes(i);
+
+        if (isLocked) bgStyle = 'bg-amber-500 text-slate-950 border-amber-400 font-extrabold ring-2 ring-amber-400';
+        if (isExcluded) bgStyle = 'bg-rose-950 text-rose-500 border-rose-900 opacity-40 line-through';
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `p-2 rounded-xl border text-center transition-all hover:scale-105 active:scale-95 flex flex-col items-center justify-center ${bgStyle}`;
+        btn.title = `Số ${formatNum(i)}: Đã ra ${count} lần`;
+        btn.innerHTML = `
+          <span class="text-xs font-mono">${formatNum(i)}</span>
+          <span class="text-[9px] opacity-70">${count}x</span>
+        `;
+        btn.onclick = () => toggleNumberLockQuick(i);
+        grid.appendChild(btn);
+      }
+    }
+
+    function toggleNumberLockQuick(num) {
+      if (lockedNumbers.includes(num)) {
+        lockedNumbers = lockedNumbers.filter(n => n !== num);
+        showToast(`Đã bỏ khoá số ${formatNum(num)}`);
+      } else {
+        if (lockedNumbers.length >= 3) {
+          showToast('Chỉ có thể khoá tối đa 3 số may mắn!', 'warn');
+          return;
+        }
+        if (excludedNumbers.includes(num)) {
+          excludedNumbers = excludedNumbers.filter(n => n !== num);
+        }
+        lockedNumbers.push(num);
+        showToast(`Đã KHOÁ số ${formatNum(num)}`);
+      }
+      updateLockExcludeLabels();
+      refreshAnalyticsView();
+    }
+
+    function generateTicket() {
+      const stats = calculateStatistics();
+      const strategy = document.querySelector('input[name="strategy"]:checked')?.value || 'balanced';
+      const maxNum = stats.maxNumber;
+      const targetCount = 6;
+
+      let validTicket = null;
+      let attempts = 0;
+
+      while (!validTicket && attempts < 1000) {
+        attempts++;
+        const candidateSet = new Set(lockedNumbers);
+        const pool = [];
+
+        // Build weighted lottery pool
+        for (let i = 1; i <= maxNum; i++) {
+          if (candidateSet.has(i) || excludedNumbers.includes(i)) continue;
+
+          let weight = 10;
+          if (strategy === 'hot') {
+            const freq = stats.frequencyMap[i] || 0;
+            weight += freq * 8;
+          } else if (strategy === 'cold') {
+            const gap = stats.lastAppearanceMap[i] === 999 ? 20 : stats.lastAppearanceMap[i];
+            weight += gap * 5;
+          } else if (strategy === 'balanced') {
+            const freq = stats.frequencyMap[i] || 0;
+            weight += freq * 2;
+          }
+          // Push items by weight
+          for (let w = 0; w < weight; w++) {
+            pool.push(i);
+          }
+        }
+
+        // Fill remaining slots
+        while (candidateSet.size < targetCount && pool.length > 0) {
+          const randomIndex = Math.floor(Math.random() * pool.length);
+          const picked = pool[randomIndex];
+          candidateSet.add(picked);
+        }
+
+        const candidateArray = Array.from(candidateSet).sort((a, b) => a - b);
+        if (candidateArray.length !== targetCount) continue;
+
+        // Apply filters if balanced strategy
+        if (strategy === 'balanced' && attempts < 800) {
+          const sum = candidateArray.reduce((a, b) => a + b, 0);
+          const minSum = currentMode === 'mega' ? 95 : 120;
+          const maxSum = currentMode === 'mega' ? 180 : 220;
+
+          if (sum < minSum || sum > maxSum) continue;
+
+          const evens = candidateArray.filter(n => n % 2 === 0).length;
+          // Accept 2:4, 3:3, 4:2
+          if (evens < 2 || evens > 4) continue;
+
+          // Reject more than 2 consecutive numbers (e.g., 10,11,12)
+          let hasThreeConsecutive = false;
+          for (let k = 0; k < candidateArray.length - 2; k++) {
+            if (candidateArray[k] + 1 === candidateArray[k+1] && candidateArray[k+1] + 1 === candidateArray[k+2]) {
+              hasThreeConsecutive = true;
+              break;
+            }
+          }
+          if (hasThreeConsecutive) continue;
+        }
+
+        validTicket = candidateArray;
+      }
+
+      // Bonus pick for Power 6/55
+      let bonusNumber = null;
+      if (currentMode === 'power') {
+        const availableBonus = [];
+        for (let i = 1; i <= maxNum; i++) {
+          if (!validTicket.includes(i)) availableBonus.push(i);
+        }
+        bonusNumber = availableBonus[Math.floor(Math.random() * availableBonus.length)];
+      }
+
+      currentGeneratedTicket = {
+        numbers: validTicket,
+        bonus: bonusNumber,
+        mode: currentMode,
+        timestamp: new Date()
+      };
+
+      renderTicketDisplay(currentGeneratedTicket);
+      updateMetrics(validTicket);
+      recordSessionHistory(currentGeneratedTicket);
+    }
+
+    function renderTicketDisplay(ticket) {
+      const container = document.getElementById('ballsDisplayArea');
+      container.innerHTML = '';
+
+      const ballTheme = ticket.mode === 'mega' ? 'ball-mega' : 'ball-power';
+
+      ticket.numbers.forEach((num, idx) => {
+        const el = document.createElement('div');
+        el.className = `ball ${ballTheme} w-12 h-12 sm:w-14 sm:h-14 text-base sm:text-lg animate-bounce`;
+        el.style.animationDelay = `${idx * 60}ms`;
+        el.style.animationDuration = '0.5s';
+        el.style.animationIterationCount = '1';
+        el.innerText = formatNum(num);
+        container.appendChild(el);
+      });
+
+      if (ticket.bonus !== null) {
+        // Divider plus sign
+        const plus = document.createElement('div');
+        plus.className = 'text-slate-500 font-bold text-xl px-1';
+        plus.innerText = '+';
+        container.appendChild(plus);
+
+        const bonusEl = document.createElement('div');
+        bonusEl.className = 'ball ball-bonus w-12 h-12 sm:w-14 sm:h-14 text-base sm:text-lg animate-pulse';
+        bonusEl.title = 'Số đặc biệt (Bonus)';
+        bonusEl.innerText = formatNum(ticket.bonus);
+        container.appendChild(bonusEl);
+      }
+    }
+
+    function updateMetrics(numbers) {
+      const sum = numbers.reduce((a, b) => a + b, 0);
+      const evens = numbers.filter(n => n % 2 === 0).length;
+      const odds = numbers.length - evens;
+
+      const mid = currentMode === 'mega' ? 23 : 28;
+      const lows = numbers.filter(n => n <= mid).length;
+      const highs = numbers.length - lows;
+
+      document.getElementById('metricSum').innerText = sum;
+      document.getElementById('metricEvenOdd').innerText = `${evens}C / ${odds}L`;
+      document.getElementById('metricLowHigh').innerText = `${lows}T / ${highs}C`;
+
+      // Balance Score calculation (0 - 100)
+      let score = 70;
+      if (evens === 3 || evens === 2 || evens === 4) score += 15;
+      if (lows === 3 || lows === 2 || lows === 4) score += 15;
+      document.getElementById('metricBalanceScore').innerText = `${score}%`;
+    }
+
+    function recordSessionHistory(ticket) {
+      sessionHistory.unshift(ticket);
+      const listEl = document.getElementById('sessionHistoryList');
+      listEl.innerHTML = '';
+
+      sessionHistory.slice(0, 10).forEach(t => {
+        const item = document.createElement('div');
+        item.className = 'flex items-center justify-between p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-xs';
+        
+        const numsStr = t.numbers.map(n => formatNum(n)).join(' - ');
+        const bonusStr = t.bonus ? ` <span class="text-rose-400 font-bold">(+${formatNum(t.bonus)})</span>` : '';
+        const tag = t.mode === 'mega' ? '<span class="text-rose-400 font-bold">MEGA</span>' : '<span class="text-amber-400 font-bold">POWER</span>';
+        const timeStr = t.timestamp.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+        item.innerHTML = `
+          <div class="flex items-center gap-3">
+            <span class="text-[10px] text-slate-500">${timeStr}</span>
+            <span>${tag}</span>
+            <span class="font-mono font-semibold text-slate-200">${numsStr}${bonusStr}</span>
+          </div>
+          <button onclick="copyRawText('${t.numbers.join(' ')}${t.bonus ? ' + ' + t.bonus : ''}')" class="text-slate-400 hover:text-white p-1 rounded">
+            <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+          </button>
+        `;
+        listEl.appendChild(item);
+      });
+
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function clearHistoryTickets() {
+      sessionHistory = [];
+      document.getElementById('sessionHistoryList').innerHTML = '<div class="text-xs text-slate-500 italic py-4 text-center">Đã xoá danh sách vé.</div>';
+    }
+
+    function copyCurrentNumbers() {
+      if (!currentGeneratedTicket) return;
+      const t = currentGeneratedTicket;
+      const str = `${t.mode.toUpperCase()}: ${t.numbers.map(n => formatNum(n)).join(', ')}${t.bonus ? ' [Bonus: ' + formatNum(t.bonus) + ']' : ''}`;
+      copyRawText(str);
+      showToast('Đã chép dãy số vào Clipboard!');
+    }
+
+    function copyRawText(text) {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      try {
+        document.execCommand('copy');
+        showToast('Đã chép vào bộ nhớ tạm!');
+      } catch (err) {
+        showToast('Không thể tự động chép', 'warn');
+      }
+      document.body.removeChild(textarea);
+    }
+
+    function showToast(message, type = 'success') {
+      const toast = document.getElementById('toast');
+      const toastMsg = document.getElementById('toastMsg');
+      const toastIcon = document.getElementById('toastIcon');
+
+      toastMsg.innerText = message;
+      if (type === 'warn') {
+        toastIcon.innerHTML = '<i data-lucide="alert-triangle" class="w-5 h-5 text-amber-400"></i>';
+      } else {
+        toastIcon.innerHTML = '<i data-lucide="check-circle" class="w-5 h-5 text-emerald-400"></i>';
+      }
+      if (window.lucide) lucide.createIcons();
+
+      toast.classList.remove('translate-y-20', 'opacity-0');
+      toast.classList.add('translate-y-0', 'opacity-100');
+
+      setTimeout(() => {
+        toast.classList.add('translate-y-20', 'opacity-0');
+        toast.classList.remove('translate-y-0', 'opacity-100');
+      }, 2500);
+    }
+
+    function formatNum(n) {
+      return n < 10 ? `0${n}` : `${n}`;
+    }
+
+    function openCustomPickerModal() {
+      document.getElementById('inputLockNumbers').value = lockedNumbers.join(', ');
+      document.getElementById('inputExcludeNumbers').value = excludedNumbers.join(', ');
+      document.getElementById('customPickerModal').classList.remove('hidden');
+    }
+
+    function closeCustomPickerModal() {
+      document.getElementById('customPickerModal').classList.add('hidden');
+    }
+
+    function saveCustomPickers() {
+      const maxNum = currentMode === 'mega' ? 45 : 55;
+      const parseNums = (str) => {
+        return str
+          .split(/[\s,]+/)
+          .map(x => parseInt(x.trim()))
+          .filter(n => !isNaN(n) && n >= 1 && n <= maxNum);
+      };
+
+      const locks = Array.from(new Set(parseNums(document.getElementById('inputLockNumbers').value)));
+      const excludes = Array.from(new Set(parseNums(document.getElementById('inputExcludeNumbers').value)));
+
+      if (locks.length > 3) {
+        showToast('Chỉ có thể khoá tối đa 3 số!', 'warn');
+        return;
+      }
+
+      // Check overlap
+      const overlapped = locks.filter(x => excludes.includes(x));
+      if (overlapped.length > 0) {
+        showToast(`Số ${overlapped.join(', ')} không thể vừa khoá vừa loại trừ!`, 'warn');
+        return;
+      }
+
+      lockedNumbers = locks;
+      excludedNumbers = excludes;
+      updateLockExcludeLabels();
+      refreshAnalyticsView();
+      closeCustomPickerModal();
+      showToast('Đã lưu thiết lập bộ lọc!');
+    }
+
+    function updateLockExcludeLabels() {
+      const lockLabel = document.getElementById('lockedListLabel');
+      const excludeLabel = document.getElementById('excludedListLabel');
+
+      lockLabel.innerText = lockedNumbers.length > 0 ? lockedNumbers.map(n => formatNum(n)).join(', ') : 'Không có';
+      excludeLabel.innerText = excludedNumbers.length > 0 ? excludedNumbers.map(n => formatNum(n)).join(', ') : 'Không có';
+    }
+
+    function openHistoryModal() {
+      const modal = document.getElementById('historyDataModal');
+      const data = getHistoryData();
+      document.getElementById('modalGameTypeName').innerText = currentMode === 'mega' ? 'Mega 6/45' : 'Power 6/55';
+      document.getElementById('rawJsonEditor').value = JSON.stringify(data, null, 2);
+      
+      const bonusRow = document.getElementById('bonusInputRow');
+      if (currentMode === 'power') {
+        bonusRow.classList.remove('hidden');
+      } else {
+        bonusRow.classList.add('hidden');
+      }
+
+      modal.classList.remove('hidden');
+    }
+
+    function closeHistoryModal() {
+      document.getElementById('historyDataModal').classList.add('hidden');
+    }
+
+    function addNewDrawRecord() {
+      const drawId = document.getElementById('inputDrawId').value.trim();
+      const date = document.getElementById('inputDrawDate').value;
+      const numRaw = document.getElementById('inputDrawNumbers').value;
+      const bonusRaw = document.getElementById('inputDrawBonus').value;
+
+      if (!drawId || !numRaw) {
+        showToast('Vui lòng điền mã kỳ và các số trúng!', 'warn');
+        return;
+      }
+
+      const numbers = numRaw.split(/[\s,]+/).map(n => parseInt(n.trim())).filter(n => !isNaN(n));
+      if (numbers.length !== 6) {
+        showToast('Phải nhập chính xác 6 con số!', 'warn');
+        return;
+      }
+
+      const newRecord = {
+        id: drawId.startsWith('#') ? drawId : `#${drawId}`,
+        date: date || new Date().toISOString().split('T')[0],
+        numbers: numbers.sort((a, b) => a - b)
+      };
+
+      if (currentMode === 'power' && bonusRaw) {
+        newRecord.bonus = parseInt(bonusRaw);
+      }
+
+      const currentData = getHistoryData();
+      currentData.unshift(newRecord);
+      const key = currentMode === 'mega' ? 'vlt_mega_data' : 'vlt_power_data';
+      setStoredData(key, currentData);
+
+      document.getElementById('rawJsonEditor').value = JSON.stringify(currentData, null, 2);
+      refreshAnalyticsView();
+      showToast('Đã thêm kỳ quay mới thành công!');
+    }
+
+    function saveJsonData() {
+      try {
+        const parsed = JSON.parse(document.getElementById('rawJsonEditor').value);
+        if (!Array.isArray(parsed)) throw new Error('Dữ liệu phải là một mảng!');
+        const key = currentMode === 'mega' ? 'vlt_mega_data' : 'vlt_power_data';
+        setStoredData(key, parsed);
+        refreshAnalyticsView();
+        closeHistoryModal();
+        showToast('Đã cập nhật cơ sở dữ liệu!');
+      } catch (err) {
+        showToast('Lỗi cú pháp JSON: ' + err.message, 'warn');
+      }
+    }
+
+    function resetDefaultMockData() {
+      const key = currentMode === 'mega' ? 'vlt_mega_data' : 'vlt_power_data';
+      localStorage.removeItem(key);
+      const data = getHistoryData();
+      document.getElementById('rawJsonEditor').value = JSON.stringify(data, null, 2);
+      refreshAnalyticsView();
+      showToast('Đã khôi phục dữ liệu ban đầu!');
+    }
+
+    window.onload = function() {
+      if (window.lucide) {
+        lucide.createIcons();
+      }
+      refreshAnalyticsView();
+      generateTicket();
+
+      // Listen for strategy radio change
+      document.querySelectorAll('input[name="strategy"]').forEach(radio => {
+        radio.addEventListener('change', (e) => {
+          const descEl = document.getElementById('strategyDescription');
+          const val = e.target.value;
+          if (val === 'balanced') descEl.innerText = 'Gợi ý phân bổ cân bằng Chẵn-Lẻ (3:3 hoặc 4:2), Tổng điểm chuông Gauss và loại bỏ chuỗi 3 số liên tiếp.';
+          else if (val === 'hot') descEl.innerText = 'Tập trung chọn các con số có tần suất xuất hiện dày đặc nhất trong lịch sử kỳ quay.';
+          else if (val === 'cold') descEl.innerText = 'Chiến lược bắt cầu lô gan: Tăng trọng số cho các số lâu nhất chưa xuất hiện trở lại.';
+          else if (val === 'random') descEl.innerText = 'Sinh ngẫu nhiên hoàn toàn theo chuẩn Quick-Pick của Vietlott.';
+          generateTicket();
+        });
+      });
+    };
+  </script>
+</body>
+</html>
