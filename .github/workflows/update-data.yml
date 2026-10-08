@@ -3,7 +3,7 @@ name: Vietlott Daily Auto Update
 on:
   schedule:
     # 19:15 Giờ Việt Nam (UTC+7) -> 12:15 UTC (chạy sau giờ quay 18:30)
-    - cron: '15 12 * * *'
+    - cron: '30 12 * * *'
   workflow_dispatch: # Cho phép nhấn nút chạy tay bất cứ lúc nào
 
 permissions:
