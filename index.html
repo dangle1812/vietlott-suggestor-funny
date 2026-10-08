@@ -11,12 +11,12 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 40px;
-      height: 40px;
+      width: 42px;
+      height: 42px;
       border-radius: 50%;
       font-weight: 700;
       color: #fff;
-      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
     }
     .ball-mega { background: radial-gradient(circle at 30% 30%, #ef4444, #991b1b); }
     .ball-power { background: radial-gradient(circle at 30% 30%, #f59e0b, #b45309); }
@@ -25,6 +25,7 @@
 <body class="bg-slate-950 text-slate-100 min-h-screen">
 
   <div class="max-w-5xl mx-auto px-4 py-8">
+    <!-- Header -->
     <header class="text-center mb-8">
       <h1 class="text-3xl sm:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-red-500 via-amber-400 to-yellow-500">
         VIETLOTT STATS & AI SUGGESTION
@@ -37,6 +38,7 @@
       </div>
     </header>
 
+    <!-- Chọn Game -->
     <div class="flex justify-center gap-4 mb-8">
       <button id="btn-tab-mega" onclick="switchGame('mega645')" class="px-6 py-2.5 rounded-xl font-bold transition flex items-center gap-2 bg-red-600 text-white shadow-lg shadow-red-600/30">
         <i class="fa-solid fa-fire"></i> Mega 6/45
@@ -46,7 +48,10 @@
       </button>
     </div>
 
+    <!-- Khung chính -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+      
+      <!-- Cột gợi ý số -->
       <div class="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
         <div>
           <h2 class="text-lg font-bold text-slate-200 mb-4 flex items-center gap-2">
@@ -56,4 +61,11 @@
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
             <label class="cursor-pointer">
               <input type="radio" name="strategy" value="balanced" checked class="peer sr-only">
-              <div class="p-3 rounded-xl border border-slate-700 peer-checked:border-red-500 peer-checked:bg-red-500/
+              <div class="p-3 rounded-xl border border-slate-700 peer-checked:border-red-500 peer-checked:bg-red-500/10 text-center transition">
+                <div class="font-bold text-sm text-slate-200">Cân Bằng Chuẩn</div>
+                <div class="text-xs text-slate-400 mt-1">Chẵn/Lẻ 3:3, Tổng chuẩn</div>
+              </div>
+            </label>
+            <label class="cursor-pointer">
+              <input type="radio" name="strategy" value="hot" class="peer sr-only">
+              <div class="p-3 rounded-xl
