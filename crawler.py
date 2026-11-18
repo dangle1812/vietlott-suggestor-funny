@@ -1,11 +1,19 @@
+"""Cào kết quả Mega 6/45 và Power 6/55 từ Minh Chính, gộp vào data.json."""
 import json
 import os
 import re
+import sys
+import tempfile
 from datetime import datetime
+
 import requests
 from bs4 import BeautifulSoup
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
-DATA_FILE = "data.json"
+DATA_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data.json")
+MAX_DRAWS = 200
+
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -13,138 +21,194 @@ HEADERS = {
     )
 }
 
+# max_ball: số lớn nhất; main: số bóng chính; bonus: có bóng phụ hay không
+GAMES = {
+    "mega645": {
+        "url": "https://www.minhchinh.com/truc-tiep-xo-so-tu-chon-mega-645.html",
+        "max_ball": 45,
+        "main": 6,
+        "bonus": False,
+    },
+    "power655": {
+        "url": "https://www.minhchinh.com/truc-tiep-xo-so-tu-chon-power-655.html",
+        "max_ball": 55,
+        "main": 6,
+        "bonus": True,
+    },
+}
+
+DATE_RE = re.compile(r"(\d{2}/\d{2}/\d{4})")
+DRAW_ID_RE = re.compile(r"(?:#|Kỳ\s*(?:QSMT)?\s*)(\d{4,6})", re.IGNORECASE)
+
+
+def make_session():
+    """Session có retry cho lỗi mạng / 5xx."""
+    retry = Retry(
+        total=3,
+        backoff_factor=1.5,
+        status_forcelist=(429, 500, 502, 503, 504),
+        allowed_methods=("GET",),
+    )
+    session = requests.Session()
+    session.headers.update(HEADERS)
+    session.mount("https://", HTTPAdapter(max_retries=retry))
+    return session
+
 
 def load_data():
-    """Tải dữ liệu cũ từ data.json nếu tồn tại"""
-    if os.path.exists(DATA_FILE):
-        try:
-            with open(DATA_FILE, "r", encoding="utf-8") as f:
-                content = json.load(f)
-                if isinstance(content, dict):
-                    return content
-        except Exception:
-            pass
-    return {"mega645": [], "power655": []}
-
-
-def parse_minhchinh_table(url, game_type):
-    """
-    Bóc tách bảng thống kê 15 kỳ gần nhất từ Minh Chính
-    game_type: 'mega645' (lấy 6 số <= 45) hoặc 'power655' (lấy 6 số <= 55 + 1 bonus)
-    """
-    results = []
+    """Tải dữ liệu cũ từ data.json nếu hợp lệ."""
+    empty = {"mega645": [], "power655": []}
+    if not os.path.exists(DATA_FILE):
+        return empty
     try:
-        res = requests.get(url, headers=HEADERS, timeout=25)
+        with open(DATA_FILE, "r", encoding="utf-8") as f:
+            content = json.load(f)
+    except (OSError, json.JSONDecodeError) as e:
+        print(f"Cảnh báo: không đọc được {DATA_FILE}: {e}")
+        return empty
+    if not isinstance(content, dict):
+        return empty
+    for key in empty:
+        if not isinstance(content.get(key), list):
+            content[key] = []
+    return content
+
+
+def save_data(data):
+    """Ghi atomic để tránh hỏng file nếu bị ngắt giữa chừng."""
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(DATA_FILE), suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+            f.write("\n")
+        os.replace(tmp, DATA_FILE)
+    except BaseException:
+        if os.path.exists(tmp):
+            os.remove(tmp)
+        raise
+
+
+def extract_balls(row):
+    """Lấy số từ các thẻ lá (không có thẻ con) để không đếm trùng khi thẻ lồng nhau."""
+    balls = []
+    for tag in row.find_all(["span", "div", "b", "strong"]):
+        if tag.find(["span", "div", "b", "strong"]):
+            continue
+        text = tag.get_text(strip=True)
+        if text.isdigit() and len(text) <= 2:
+            balls.append(int(text))
+    return balls
+
+
+def parse_row(row, game_type):
+    """Trả về dict kết quả của 1 dòng, hoặc None nếu dòng không hợp lệ."""
+    cfg = GAMES[game_type]
+    cells = row.find_all(["td", "th"])
+    if len(cells) < 2:
+        return None
+
+    head_text = " ".join(c.get_text(" ", strip=True) for c in cells[:2])
+    m_date = DATE_RE.search(cells[0].get_text(strip=True))
+    if not m_date:
+        return None
+    date_str = m_date.group(1)
+    try:
+        datetime.strptime(date_str, "%d/%m/%Y")
+    except ValueError:
+        return None
+
+    balls = extract_balls(row)
+    need = cfg["main"] + (1 if cfg["bonus"] else 0)
+    if len(balls) < need:
+        return None
+    balls = balls[:need]
+    if any(not 1 <= b <= cfg["max_ball"] for b in balls):
+        return None
+
+    main_nums = balls[: cfg["main"]]
+    if len(set(main_nums)) != cfg["main"]:
+        return None  # 6 số chính phải khác nhau
+
+    m_id = DRAW_ID_RE.search(head_text)
+    item = {
+        "draw": m_id.group(1) if m_id else date_str.replace("/", ""),
+        "date": date_str,
+        "numbers": sorted(main_nums),
+    }
+    if cfg["bonus"]:
+        item["bonus"] = balls[cfg["main"]]
+    return item
+
+
+def parse_minhchinh_table(session, game_type):
+    """Cào bảng kỳ quay gần nhất của một loại hình."""
+    cfg = GAMES[game_type]
+    results, seen = [], set()
+    try:
+        res = session.get(cfg["url"], timeout=25)
+        res.raise_for_status()
         res.encoding = "utf-8"
-        if res.status_code != 200:
-            print(f"Không thể kết nối đến {url} (Mã HTTP: {res.status_code})")
-            return results
+    except requests.RequestException as e:
+        print(f"Lỗi kết nối {game_type}: {e}")
+        return results
 
-        soup = BeautifulSoup(res.text, "html.parser")
-        rows = soup.find_all("tr")
-
-        for row in rows:
-            cells = row.find_all(["td", "th"])
-            if len(cells) < 2:
-                continue
-
-            # 1. Tìm ngày quay ở ô đầu tiên
-            first_cell_text = cells[0].get_text(strip=True)
-            match_date = re.search(r"(\d{2}/\d{2}/\d{4})", first_cell_text)
-            if not match_date:
-                continue
-            date_str = match_date.group(1)
-
-            # 2. Tìm tất cả các bóng số trong dòng
-            balls = []
-            for tag in row.find_all(["span", "div", "b", "strong"]):
-                text_val = tag.get_text(strip=True)
-                if text_val.isdigit() and len(text_val) <= 2:
-                    balls.append(int(text_val))
-
-            max_ball_val = 45 if game_type == "mega645" else 55
-            valid_balls = [b for b in balls if 1 <= b <= max_ball_val]
-
-            # Xử lý theo loại hình xổ số
-            if game_type == "mega645" and len(valid_balls) >= 6:
-                main_nums = sorted(valid_balls[:6])
-                # Tránh trùng lặp ngày trong cùng một bảng
-                if not any(r["date"] == date_str for r in results):
-                    results.append(
-                        {
-                            "draw": date_str.replace("/", ""),
-                            "date": date_str,
-                            "numbers": main_nums,
-                        }
-                    )
-            elif game_type == "power655" and len(valid_balls) >= 7:
-                main_nums = sorted(valid_balls[:6])
-                bonus_num = valid_balls[6]
-                if not any(r["date"] == date_str for r in results):
-                    results.append(
-                        {
-                            "draw": date_str.replace("/", ""),
-                            "date": date_str,
-                            "numbers": main_nums,
-                            "bonus": bonus_num,
-                        }
-                    )
-
-    except Exception as e:
-        print(f"Lỗi khi cào dữ liệu {game_type}: {e}")
-
+    soup = BeautifulSoup(res.text, "html.parser")
+    for row in soup.find_all("tr"):
+        item = parse_row(row, game_type)
+        if item and item["date"] not in seen:
+            seen.add(item["date"])
+            results.append(item)
     return results
 
 
-def merge_and_sort(existing_items, new_items, max_limit=200):
-    """Gộp dữ liệu cũ và mới theo ngày, sắp xếp giảm dần và giữ tối đa 200 kỳ"""
-    merged_dict = {item["date"]: item for item in existing_items}
+def merge_and_sort(existing_items, new_items, max_limit=MAX_DRAWS):
+    """Gộp theo ngày (bản mới ghi đè), sắp xếp mới nhất trước, giữ tối đa max_limit kỳ."""
+    merged = {}
+    for item in existing_items:
+        try:
+            datetime.strptime(item["date"], "%d/%m/%Y")
+        except (KeyError, TypeError, ValueError):
+            continue  # bỏ dòng hỏng trong file cũ
+        merged[item["date"]] = item
     for item in new_items:
-        merged_dict[item["date"]] = item
+        merged[item["date"]] = item
 
-    # Sắp xếp ngày mới nhất lên đầu
-    sorted_items = sorted(
-        list(merged_dict.values()),
+    ordered = sorted(
+        merged.values(),
         key=lambda x: datetime.strptime(x["date"], "%d/%m/%Y"),
         reverse=True,
     )
-    return sorted_items[:max_limit]
+    return ordered[:max_limit]
 
 
 def main():
     data = load_data()
+    old_snapshot = json.dumps(data, sort_keys=True, ensure_ascii=False)
+    session = make_session()
+    fetched_any = False
 
-    # 1. Cào bảng 15 kỳ của Mega 6/45
-    print("--- Đang cào bảng Mega 6/45 ---")
-    mega_list = parse_minhchinh_table(
-        "https://www.minhchinh.com/truc-tiep-xo-so-tu-chon-mega-645.html",
-        "mega645",
-    )
-    print(f"Tìm thấy {len(mega_list)} kỳ Mega 6/45 từ Minh Chính.")
+    for game_type in GAMES:
+        print(f"--- Đang cào {game_type} ---")
+        items = parse_minhchinh_table(session, game_type)
+        print(f"Tìm thấy {len(items)} kỳ.")
+        if items:
+            fetched_any = True
+            data[game_type] = merge_and_sort(data.get(game_type, []), items)
 
-    # 2. Cào bảng 15 kỳ của Power 6/55
-    print("--- Đang cào bảng Power 6/55 ---")
-    power_list = parse_minhchinh_table(
-        "https://www.minhchinh.com/truc-tiep-xo-so-tu-chon-power-655.html",
-        "power655",
-    )
-    print(f"Tìm thấy {len(power_list)} kỳ Power 6/55 từ Minh Chính.")
+    if not fetched_any:
+        print("=> Không lấy được dữ liệu mới.")
+        return 1
 
-    # Cập nhật và lưu lại
-    if mega_list:
-        data["mega645"] = merge_and_sort(data.get("mega645", []), mega_list)
-    if power_list:
-        data["power655"] = merge_and_sort(data.get("power655", []), power_list)
+    if json.dumps(data, sort_keys=True, ensure_ascii=False) == old_snapshot:
+        print("=> Không có thay đổi, giữ nguyên data.json.")
+        return 0
 
-    if mega_list or power_list:
-        with open(DATA_FILE, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        print("\n=> Cập nhật file data.json thành công!")
-        print(f"Tổng số kỳ Mega 6/45 hiện có: {len(data['mega645'])}")
-        print(f"Tổng số kỳ Power 6/55 hiện có: {len(data['power655'])}")
-    else:
-        print("\n=> Không lấy được dữ liệu mới.")
+    save_data(data)
+    print("=> Cập nhật data.json thành công!")
+    for game_type in GAMES:
+        print(f"Tổng số kỳ {game_type}: {len(data[game_type])}")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
