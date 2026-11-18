@@ -112,6 +112,16 @@
             </div>
             <div id="stat-indicators" class="hidden text-xs text-slate-400 flex flex-wrap gap-4 justify-center"></div>
           </div>
+
+          <!-- Xác suất & đối chiếu lịch sử của dãy vừa tạo -->
+          <div id="prob-panel" class="hidden mt-4 bg-slate-950 border border-slate-800/80 rounded-xl p-4 text-xs text-slate-400">
+            <div class="font-semibold text-slate-300 mb-2 uppercase tracking-wider">Xác suất trúng của dãy này</div>
+            <table class="w-full mb-3"><tbody id="prob-table-body"></tbody></table>
+            <div id="prob-total" class="mb-3 text-slate-300"></div>
+            <div class="font-semibold text-slate-300 mb-1 uppercase tracking-wider">Nếu đã mua dãy này trong quá khứ</div>
+            <div id="backtest-result" class="mb-3"></div>
+            <p class="text-slate-500 italic">Mọi dãy số hợp lệ đều có đúng các xác suất trên. Thống kê nóng/gan không làm thay đổi chúng.</p>
+          </div>
         </div>
 
         <button onclick="generateSuggestion()" class="w-full mt-6 py-3.5 bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 font-bold rounded-xl text-white shadow-lg transition active:scale-[0.99] flex items-center justify-center gap-2">
@@ -269,6 +279,7 @@
       }
       $('balls-container').innerHTML = '<span class="text-slate-500 text-sm italic">Bấm nút "Tạo Dãy Số" để nhận gợi ý</span>';
       $('stat-indicators').classList.add('hidden');
+      $('prob-panel').classList.add('hidden');
       updateStatusBadge();
       renderView();
     }
@@ -385,6 +396,68 @@
       renderSuggestedBalls(selected);
     }
 
+    // ---------- Xác suất ----------
+    function comb(n, k) {
+      if (k < 0 || k > n) return 0;
+      k = Math.min(k, n - k);
+      let r = 1;
+      for (let i = 1; i <= k; i++) r = r * (n - k + i) / i;
+      return Math.round(r);
+    }
+
+    // Các hạng giải theo luật Vietlott: [tên, số cách trúng]
+    function getTiers(game) {
+      const N = GAMES[game].max;
+      const c = (k) => comb(PICK, k) * comb(N - PICK, PICK - k);
+      if (game === 'mega645') {
+        return [['Jackpot (6 số)', c(6)], ['Giải nhất (5 số)', c(5)], ['Giải nhì (4 số)', c(4)], ['Giải ba (3 số)', c(3)]];
+      }
+      return [
+        ['Jackpot 1 (6 số)', c(6)],
+        ['Jackpot 2 (5 số + số đặc biệt)', comb(PICK, 5)],
+        ['Giải nhất (5 số)', c(5) - comb(PICK, 5)],
+        ['Giải nhì (4 số)', c(4)],
+        ['Giải ba (3 số)', c(3)]
+      ];
+    }
+
+    const fmtInt = (n) => Math.round(n).toLocaleString('vi-VN');
+    const fmtPct = (p) => (p * 100).toLocaleString('vi-VN', { maximumSignificantDigits: 3 }) + '%';
+
+    function renderProbability(numbers) {
+      const N = GAMES[currentGame].max;
+      const total = comb(N, PICK);
+      const tiers = getTiers(currentGame);
+
+      $('prob-table-body').innerHTML = tiers.map(([name, ways]) => `
+        <tr class="border-b border-slate-800/60 last:border-0">
+          <td class="py-1.5 pr-2">${name}</td>
+          <td class="py-1.5 text-right text-slate-200 whitespace-nowrap">1 / ${fmtInt(total / ways)}</td>
+          <td class="py-1.5 pl-2 text-right whitespace-nowrap">${fmtPct(ways / total)}</td>
+        </tr>`).join('');
+
+      const anyWays = tiers.reduce((a, t) => a + t[1], 0);
+      $('prob-total').innerHTML = `Trúng <b>ít nhất một giải</b>: 1 / ${fmtInt(total / anyWays)} (${fmtPct(anyWays / total)}) mỗi kỳ`;
+
+      // Đối chiếu với các kỳ đã có trong data.json
+      const draws = currentData[currentGame] || [];
+      const mine = new Set(numbers);
+      const hist = new Array(PICK + 1).fill(0);
+      let best = null;
+      for (const d of draws) {
+        const m = d.numbers.filter(n => mine.has(n)).length;
+        hist[m]++;
+        if (!best || m > best.m) best = { m, date: d.date };
+      }
+      $('backtest-result').innerHTML = draws.length === 0
+        ? 'Chưa có dữ liệu để đối chiếu.'
+        : `Trong <b>${draws.length}</b> kỳ gần nhất: trùng 0-2 số <b>${hist[0] + hist[1] + hist[2]}</b> kỳ, ` +
+          `trùng 3 số trở lên <b>${hist.slice(3).reduce((a, b) => a + b, 0)}</b> kỳ. ` +
+          `Nhiều nhất: trùng <b>${best.m}</b> số (kỳ ${escapeHtml(best.date)}).`;
+
+      $('prob-panel').classList.remove('hidden');
+    }
+
     function renderSuggestedBalls(numbers) {
       const ballClass = GAMES[currentGame].ballClass;
       $('balls-container').innerHTML = numbers
@@ -398,6 +471,7 @@
       statEl.innerHTML = `
         <span><b class="text-slate-300">Tổng:</b> ${sum}</span>
         <span><b class="text-slate-300">Chẵn/Lẻ:</b> ${evens}/${PICK - evens}</span>`;
+      renderProbability(numbers);
     }
 
     window.addEventListener('DOMContentLoaded', () => reloadData(false));
