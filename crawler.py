@@ -4,7 +4,7 @@ import os
 import re
 import sys
 import tempfile
-from datetime import datetime
+from datetime import datetime, timezone
 
 import requests
 from bs4 import BeautifulSoup
@@ -37,6 +37,13 @@ GAMES = {
     },
 }
 
+# id thẻ chứa giá trị Jackpot trên minhchinh.com (lưu ý: id của Mega thực tế là "mega656_GT")
+JACKPOT_IDS = {
+    "mega645": {"jackpot": "mega656_GT"},
+    "power655": {"jackpot": "power655_GT", "jackpot2": "power655_GT2"},
+}
+MIN_JACKPOT = 1_000_000_000  # dưới mức này coi là đọc sai (Jackpot thấp nhất là 3 tỷ)
+
 DATE_RE = re.compile(r"(\d{2}/\d{2}/\d{4})")
 DRAW_ID_RE = re.compile(r"(?:#|Kỳ\s*(?:QSMT)?\s*)(\d{4,6})", re.IGNORECASE)
 
@@ -57,7 +64,7 @@ def make_session():
 
 def load_data():
     """Tải dữ liệu cũ từ data.json nếu hợp lệ."""
-    empty = {"mega645": [], "power655": []}
+    empty = {"mega645": [], "power655": [], "jackpots": {}}
     if not os.path.exists(DATA_FILE):
         return empty
     try:
@@ -68,9 +75,11 @@ def load_data():
         return empty
     if not isinstance(content, dict):
         return empty
-    for key in empty:
+    for key in ("mega645", "power655"):
         if not isinstance(content.get(key), list):
             content[key] = []
+    if not isinstance(content.get("jackpots"), dict):
+        content["jackpots"] = {}
     return content
 
 
@@ -140,25 +149,65 @@ def parse_row(row, game_type):
     return item
 
 
-def parse_minhchinh_table(session, game_type):
-    """Cào bảng kỳ quay gần nhất của một loại hình."""
-    cfg = GAMES[game_type]
+def parse_draws(soup, game_type):
+    """Đọc các kỳ quay trong bảng kết quả."""
     results, seen = [], set()
-    try:
-        res = session.get(cfg["url"], timeout=25)
-        res.raise_for_status()
-        res.encoding = "utf-8"
-    except requests.RequestException as e:
-        print(f"Lỗi kết nối {game_type}: {e}")
-        return results
-
-    soup = BeautifulSoup(res.text, "html.parser")
     for row in soup.find_all("tr"):
         item = parse_row(row, game_type)
         if item and item["date"] not in seen:
             seen.add(item["date"])
             results.append(item)
     return results
+
+
+def parse_money(text):
+    """'40,971,513,000' -> 40971513000"""
+    digits = re.sub(r"\D", "", text or "")
+    return int(digits) if digits else None
+
+
+def parse_jackpots(soup, game_type):
+    """Đọc giá trị Jackpot hiện tại. Ưu tiên theo id, dự phòng theo thứ tự trong khối giatri_jackpot."""
+    live = soup.select(".giatri_jackpot .gtblive")
+    found = {}
+    for idx, (key, el_id) in enumerate(JACKPOT_IDS[game_type].items()):
+        el = soup.find(id=el_id)
+        if el is None and idx < len(live):
+            el = live[idx]
+        if el is None:
+            continue
+        value = parse_money(el.get_text())
+        if value and value >= MIN_JACKPOT:
+            found[key] = value
+    return found
+
+
+def fetch_game(session, game_type):
+    """Tải trang một lần, trả về (danh sách kỳ quay, dict jackpot)."""
+    cfg = GAMES[game_type]
+    try:
+        res = session.get(cfg["url"], timeout=25)
+        res.raise_for_status()
+        res.encoding = "utf-8"
+    except requests.RequestException as e:
+        print(f"Lỗi kết nối {game_type}: {e}")
+        return [], {}
+    soup = BeautifulSoup(res.text, "html.parser")
+    return parse_draws(soup, game_type), parse_jackpots(soup, game_type)
+
+
+def update_jackpots(data, game_type, new_values):
+    """Chỉ ghi lại (kèm mốc thời gian) khi giá trị thực sự đổi, để tránh commit thừa."""
+    if not new_values:
+        return
+    store = data.setdefault("jackpots", {})
+    old = store.get(game_type, {})
+    old_values = {k: v for k, v in old.items() if k != "updated"}
+    if new_values != old_values:
+        store[game_type] = {
+            **new_values,
+            "updated": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        }
 
 
 def merge_and_sort(existing_items, new_items, max_limit=MAX_DRAWS):
@@ -189,11 +238,13 @@ def main():
 
     for game_type in GAMES:
         print(f"--- Đang cào {game_type} ---")
-        items = parse_minhchinh_table(session, game_type)
-        print(f"Tìm thấy {len(items)} kỳ.")
+        items, jackpots = fetch_game(session, game_type)
+        print(f"Tìm thấy {len(items)} kỳ, jackpot: {jackpots or 'không đọc được'}.")
         if items:
-            fetched_any = True
             data[game_type] = merge_and_sort(data.get(game_type, []), items)
+        update_jackpots(data, game_type, jackpots)
+        if items or jackpots:
+            fetched_any = True
 
     if not fetched_any:
         print("=> Không lấy được dữ liệu mới.")
