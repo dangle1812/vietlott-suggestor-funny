@@ -2,7 +2,10 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#020617">
+  <meta name="color-scheme" content="dark">
+  <meta name="format-detection" content="telephone=no">
   <title>Vietlott Stats - Thống Kê & Gợi Ý Số Giải Trí</title>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -28,14 +31,42 @@
     .ball-mega { background: radial-gradient(circle at 30% 30%, #ef4444, #991b1b); }
     .ball-power { background: radial-gradient(circle at 30% 30%, #f59e0b, #b45309); }
     .ball-bonus { background: radial-gradient(circle at 30% 30%, #ec4899, #9d174d); border: 2px solid #fef08a; }
+
+    /* ---- Tối ưu mobile / Safari ---- */
+    html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; color-scheme: dark; }
+    body {
+      min-height: 100vh;
+      min-height: 100dvh; /* iOS Safari: tránh bị thanh địa chỉ che */
+      -webkit-tap-highlight-color: transparent;
+      padding-left: env(safe-area-inset-left);
+      padding-right: env(safe-area-inset-right);
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    button, select, input, label { touch-action: manipulation; } /* bỏ trễ 300ms, chặn zoom khi chạm đúp */
+    .select-arrow {
+      -webkit-appearance: none;
+      appearance: none;
+      padding-right: 2rem;
+      background-repeat: no-repeat;
+      background-position: right 0.6rem center;
+      background-size: 1rem;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%2394a3b8'%3E%3Cpath d='M5.3 7.3a1 1 0 011.4 0L10 10.6l3.3-3.3a1 1 0 111.4 1.4l-4 4a1 1 0 01-1.4 0l-4-4a1 1 0 010-1.4z'/%3E%3C/svg%3E");
+    }
+    /* iOS tự zoom trang khi ô nhập có chữ nhỏ hơn 16px */
+    @media (max-width: 767px), (pointer: coarse) {
+      input[type="text"], select { font-size: 16px !important; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+    }
   </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen">
+<body class="bg-slate-950 text-slate-100">
 
-  <div class="max-w-6xl mx-auto px-4 py-8">
+  <div class="max-w-6xl mx-auto px-3 sm:px-4 py-6 sm:py-8">
     <!-- Header -->
-    <header class="text-center mb-6">
-      <h1 class="text-3xl sm:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-red-500 via-amber-400 to-yellow-500">
+    <header class="text-center mb-5 sm:mb-6">
+      <h1 class="text-2xl sm:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-red-500 via-amber-400 to-yellow-500">
         VIETLOTT STATS & SUGGESTOR
       </h1>
       <p class="text-slate-400 mt-2 text-sm sm:text-base">
@@ -43,64 +74,69 @@
       </p>
 
       <!-- Badge trạng thái & nút Làm mới -->
-      <div class="flex flex-wrap items-center justify-center gap-3 mt-4">
+      <div class="flex flex-wrap items-center justify-center gap-2 sm:gap-3 mt-4">
         <div id="data-status" class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-slate-900 text-slate-400 border border-slate-800">
           <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Đang nạp dữ liệu...
         </div>
-        
-        <button onclick="reloadData(true)" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition active:scale-95">
+
+        <button onclick="reloadData(true)" class="inline-flex items-center gap-1.5 px-3.5 py-2 min-h-[40px] rounded-full text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition active:scale-95">
           <i id="sync-icon" class="fa-solid fa-rotate"></i> Làm mới dữ liệu
         </button>
       </div>
     </header>
 
     <!-- Lưu ý -->
-    <p class="text-center text-xs text-slate-500 mb-6 max-w-2xl mx-auto">
+    <p class="text-center text-xs text-slate-500 mb-5 sm:mb-6 max-w-2xl mx-auto">
       <i class="fa-solid fa-circle-info"></i>
       Mỗi kỳ quay là độc lập: mọi bộ số đều có xác suất như nhau (1/8.145.060 với Mega 6/45, 1/28.989.675 với Power 6/55).
       Thống kê "nóng/gan" không làm tăng cơ hội trúng. Chơi có trách nhiệm.
     </p>
 
     <!-- Chọn Game -->
-    <div class="flex justify-center gap-4 mb-8">
-      <button id="btn-tab-mega" onclick="switchGame('mega645')" class="px-6 py-2.5 rounded-xl font-bold transition flex items-center gap-2 bg-red-600 text-white shadow-lg shadow-red-600/30">
+    <div class="grid grid-cols-2 sm:flex sm:justify-center gap-3 sm:gap-4 mb-6 sm:mb-8 max-w-md sm:max-w-none mx-auto">
+      <button id="btn-tab-mega" onclick="switchGame('mega645')" class="px-6 py-3 sm:py-2.5 rounded-xl font-bold transition flex items-center justify-center gap-2 bg-red-600 text-white shadow-lg shadow-red-600/30">
         <i class="fa-solid fa-fire"></i> Mega 6/45
       </button>
-      <button id="btn-tab-power" onclick="switchGame('power655')" class="px-6 py-2.5 rounded-xl font-bold transition flex items-center gap-2 bg-slate-800 text-slate-300 hover:bg-slate-700">
+      <button id="btn-tab-power" onclick="switchGame('power655')" class="px-6 py-3 sm:py-2.5 rounded-xl font-bold transition flex items-center justify-center gap-2 bg-slate-800 text-slate-300 hover:bg-slate-700">
         <i class="fa-solid fa-bolt"></i> Power 6/55
       </button>
     </div>
 
-    <!-- Hàng chính: 2 Cột (Gợi ý số & Thống kê nhanh) -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8 items-start">
-      
-      <!-- Cột 1: Bộ gợi ý số -->
-      <div class="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
-        <div>
+    <!--
+      Bố cục: điện thoại = 1 cột theo thứ tự order-1..4 (gợi ý → giải thưởng → đã tạo → top);
+      máy tính (lg) = 2 cột cân đối: trái (gợi ý + đã tạo), phải (giải thưởng + top).
+    -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-4 sm:mb-6 items-start lg:items-stretch">
+
+      <!-- Cột trái -->
+      <div class="contents lg:flex lg:flex-col lg:gap-6 lg:col-span-2">
+
+        <!-- Bộ gợi ý số -->
+        <div class="order-1 bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-6 shadow-xl">
           <h2 class="text-lg font-bold text-slate-200 mb-4 flex items-center gap-2">
-            <i class="fa-solid fa-wand-magic-sparkles text-amber-400"></i> Bộ Số Gợi Ý Tối Ưu
+            <i class="fa-solid fa-wand-magic-sparkles text-amber-400"></i> Bộ Số Gợi Ý
           </h2>
-          
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+
+          <div class="grid grid-cols-3 gap-2 sm:gap-3 mb-5">
             <label class="cursor-pointer">
               <input type="radio" name="strategy" value="balanced" checked class="peer sr-only">
-              <div class="p-3 rounded-xl border border-slate-700 peer-checked:border-red-500 peer-checked:bg-red-500/10 text-center transition">
-                <div class="font-bold text-sm text-slate-200">Cân Bằng Chuẩn</div>
-                <div class="text-xs text-slate-400 mt-1">Chẵn 2-4, tổng cân đối</div>
+              <div class="h-full p-2.5 sm:p-3 rounded-xl border border-slate-700 peer-checked:border-red-500 peer-checked:bg-red-500/10 peer-focus-visible:ring-2 peer-focus-visible:ring-amber-400 text-center transition">
+                <div class="font-bold text-xs sm:text-sm text-slate-200">Cân Bằng</div>
+                <div class="text-[10px] sm:text-xs leading-snug text-slate-400 mt-1">Chẵn 2-4, tổng cân đối</div>
               </div>
             </label>
             <label class="cursor-pointer">
               <input type="radio" name="strategy" value="hot" class="peer sr-only">
-              <div class="p-3 rounded-xl border border-slate-700 peer-checked:border-red-500 peer-checked:bg-red-500/10 text-center transition">
-                <div class="font-bold text-sm text-slate-200">Bắt Cầu Nóng</div>
-                <div class="text-xs text-slate-400 mt-1">Ưu tiên số ra nhiều nhất</div>
+              <div class="h-full p-2.5 sm:p-3 rounded-xl border border-slate-700 peer-checked:border-red-500 peer-checked:bg-red-500/10 peer-focus-visible:ring-2 peer-focus-visible:ring-amber-400 text-center transition">
+                <div class="font-bold text-xs sm:text-sm text-slate-200">Số Nóng</div>
+                <div class="text-[10px] sm:text-xs leading-snug text-slate-400 mt-1">Ưu tiên số ra nhiều nhất</div>
               </div>
             </label>
             <label class="cursor-pointer">
               <input type="radio" name="strategy" value="cold" class="peer sr-only">
-              <div class="p-3 rounded-xl border border-slate-700 peer-checked:border-red-500 peer-checked:bg-red-500/10 text-center transition">
-                <div class="font-bold text-sm text-slate-200">Lô Gan Phục Hồi</div>
-                <div class="text-xs text-slate-400 mt-1">Số lâu nhất chưa về</div>
+              <div class="h-full p-2.5 sm:p-3 rounded-xl border border-slate-700 peer-checked:border-red-500 peer-checked:bg-red-500/10 peer-focus-visible:ring-2 peer-focus-visible:ring-amber-400 text-center transition">
+                <div class="font-bold text-xs sm:text-sm text-slate-200">Lô Gan</div>
+                <div class="text-[10px] sm:text-xs leading-snug text-slate-400 mt-1">Số lâu nhất chưa về</div>
               </div>
             </label>
           </div>
@@ -113,94 +149,89 @@
             <div id="stat-indicators" class="hidden text-xs text-slate-400 flex flex-wrap gap-4 justify-center"></div>
           </div>
 
+          <button onclick="generateSuggestion()" class="w-full mt-5 py-3.5 bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 font-bold rounded-xl text-white shadow-lg transition active:scale-[0.99] flex items-center justify-center gap-2">
+            <i class="fa-solid fa-dice"></i> TẠO DÃY SỐ GỢI Ý
+          </button>
         </div>
 
-        <button onclick="generateSuggestion()" class="w-full mt-6 py-3.5 bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 font-bold rounded-xl text-white shadow-lg transition active:scale-[0.99] flex items-center justify-center gap-2">
-          <i class="fa-solid fa-dice"></i> TẠO DÃY SỐ GỢI Ý
-        </button>
+        <!-- Lịch sử các dãy số đã tạo (lưu trên trình duyệt) -->
+        <div class="order-3 bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-6 shadow-xl lg:flex-1">
+          <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <h2 class="text-lg font-bold text-slate-200 flex items-center gap-2">
+              <i class="fa-solid fa-bookmark text-emerald-400"></i> Dãy Số Đã Tạo
+              <span id="saved-count" class="text-xs font-normal text-slate-500"></span>
+            </h2>
+            <div class="flex flex-wrap items-center gap-2 text-xs">
+              <label for="ttl-select" class="text-slate-400">Tự động xóa sau:</label>
+              <select id="ttl-select" onchange="setTtl(this.value)" class="select-arrow bg-slate-800 border border-slate-700 text-slate-200 rounded-lg pl-2.5 py-2 min-h-[40px]">
+                <option value="0">Không tự xóa</option>
+                <option value="3600000">1 giờ</option>
+                <option value="86400000">24 giờ</option>
+                <option value="604800000">7 ngày</option>
+                <option value="2592000000">30 ngày</option>
+              </select>
+              <button onclick="clearSaved()" class="px-3 py-2 min-h-[40px] rounded-lg bg-slate-800 hover:bg-red-900/50 text-slate-200 border border-slate-700 transition active:scale-95">
+                Xóa tất cả
+              </button>
+            </div>
+          </div>
+          <div id="saved-list" class="space-y-2 max-h-[320px] lg:max-h-[420px] overflow-y-auto overscroll-contain"></div>
+        </div>
       </div>
 
-      <!-- Cột 2: Giá trị giải thưởng + Top Hot & Gan -->
-      <div class="flex flex-col gap-6">
+      <!-- Cột phải -->
+      <div class="contents lg:flex lg:flex-col lg:gap-6">
 
-      <!-- Giá trị giải thưởng (nhập tay, lưu trên trình duyệt) -->
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
-        <div class="flex items-center justify-between mb-4">
-          <h2 class="text-lg font-bold text-slate-200 flex items-center gap-2">
+        <!-- Giá trị giải thưởng (tự động từ data.json, hoặc nhập tay nếu chưa có) -->
+        <div class="order-2 bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-6 shadow-xl">
+          <h2 class="text-lg font-bold text-slate-200 mb-4 flex items-center gap-2">
             <i class="fa-solid fa-sack-dollar text-yellow-400"></i> Giá Trị Giải Thưởng
           </h2>
+          <div id="prize-rows" class="space-y-3"></div>
+          <div id="prize-updated" class="mt-4 pt-3 border-t border-slate-800 text-xs text-slate-500 leading-relaxed"></div>
         </div>
-        <div id="prize-rows" class="space-y-3"></div>
-        <div id="prize-updated" class="mt-4 pt-3 border-t border-slate-800 text-xs text-slate-500"></div>
-      </div>
 
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col justify-between flex-1">
-        <div>
+        <!-- Top tần suất -->
+        <div class="order-4 bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-6 shadow-xl lg:flex-1 lg:flex lg:flex-col">
           <h2 class="text-lg font-bold text-slate-200 mb-4 flex items-center gap-2">
             <i class="fa-solid fa-chart-simple text-red-500"></i> Top Tần Suất
           </h2>
-          <div class="space-y-4 text-sm">
+          <div class="space-y-4 text-sm lg:mb-5">
             <div>
               <div class="text-xs text-slate-400 mb-2 font-semibold uppercase tracking-wider">Top 5 Số Hay Về Nhất</div>
-              <div id="top-hot" class="flex gap-2"></div>
+              <div id="top-hot" class="flex flex-wrap gap-2"></div>
             </div>
             <div>
               <div class="text-xs text-slate-400 mb-2 font-semibold uppercase tracking-wider">Top 5 Lô Gan (Lâu Chưa Về)</div>
-              <div id="top-cold" class="flex gap-2"></div>
+              <div id="top-cold" class="flex flex-wrap gap-2"></div>
             </div>
           </div>
+          <div class="mt-5 lg:mt-auto pt-4 border-t border-slate-800 text-xs text-slate-500">
+            Kỳ quay mới nhất: <span id="latest-draw-info" class="text-slate-300 font-medium">---</span>
+          </div>
         </div>
-        <div class="mt-6 pt-4 border-t border-slate-800 text-xs text-slate-500">
-          Kỳ quay mới nhất: <span id="latest-draw-info" class="text-slate-300 font-medium">---</span>
-        </div>
-      </div>
-
       </div>
 
     </div>
 
-    <!-- Lịch sử các dãy số đã tạo (lưu trên trình duyệt) -->
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl mb-8">
-      <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-        <h2 class="text-lg font-bold text-slate-200 flex items-center gap-2">
-          <i class="fa-solid fa-bookmark text-emerald-400"></i> Dãy Số Đã Tạo
-          <span id="saved-count" class="text-xs font-normal text-slate-500"></span>
-        </h2>
-        <div class="flex flex-wrap items-center gap-2 text-xs">
-          <label for="ttl-select" class="text-slate-400">Tự động xóa sau:</label>
-          <select id="ttl-select" onchange="setTtl(this.value)" class="bg-slate-800 border border-slate-700 text-slate-200 rounded-lg px-2.5 py-1.5">
-            <option value="0">Không tự xóa</option>
-            <option value="3600000">1 giờ</option>
-            <option value="86400000">24 giờ</option>
-            <option value="604800000">7 ngày</option>
-            <option value="2592000000">30 ngày</option>
-          </select>
-          <button onclick="clearSaved()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-red-900/50 text-slate-200 border border-slate-700 transition">
-            Xóa tất cả
-          </button>
-        </div>
-      </div>
-      <div id="saved-list" class="space-y-2 max-h-[320px] overflow-y-auto"></div>
-    </div>
-
-    <!-- Hàng bổ sung: CỘT HIỂN THỊ DÃY SỐ ĐÃ RA THEO TAB ĐANG CHỌN -->
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl mb-8">
-      <div class="flex items-center justify-between mb-4">
+    <!-- Lịch sử các kỳ quay theo tab đang chọn -->
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-6 shadow-xl mb-4 sm:mb-6">
+      <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 mb-4">
         <h2 class="text-lg font-bold text-slate-200 flex items-center gap-2">
           <i class="fa-solid fa-clock-rotate-left text-amber-500"></i>
-          Lịch Sử Các Kỳ Quay Vừa Ra (<span id="history-game-label">Mega 6/45</span>)
+          Lịch Sử Các Kỳ Quay (<span id="history-game-label">Mega 6/45</span>)
         </h2>
         <span class="text-xs text-slate-400" id="history-count-label">Hiển thị các kỳ gần nhất</span>
       </div>
 
       <!-- Bảng danh sách kỳ quay -->
-      <div class="overflow-x-auto max-h-[380px] overflow-y-auto rounded-xl border border-slate-800">
+      <div class="overflow-x-auto max-h-[380px] overflow-y-auto overscroll-contain rounded-xl border border-slate-800">
         <table class="w-full text-left border-collapse">
-          <thead class="sticky top-0 bg-slate-950 text-slate-400 text-xs uppercase tracking-wider border-b border-slate-800">
+          <thead class="text-slate-400 text-xs uppercase tracking-wider">
             <tr>
-              <th class="py-3 px-4">Ngày Mở Thưởng</th>
-              <th class="py-3 px-4">Kỳ Quay</th>
-              <th class="py-3 px-4">Dãy Số Trúng Thưởng</th>
+              <th class="sticky top-0 z-10 bg-slate-950 border-b border-slate-800 py-3 px-3 sm:px-4 whitespace-nowrap">Ngày</th>
+              <th class="sticky top-0 z-10 bg-slate-950 border-b border-slate-800 py-3 px-3 sm:px-4 hidden sm:table-cell">Kỳ Quay</th>
+              <th class="sticky top-0 z-10 bg-slate-950 border-b border-slate-800 py-3 px-3 sm:px-4">Dãy Số Trúng Thưởng</th>
             </tr>
           </thead>
           <tbody id="history-table-body" class="divide-y divide-slate-800/60 text-sm">
@@ -211,7 +242,7 @@
     </div>
 
     <!-- Bảng Heatmap ma trận tần suất -->
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-6 shadow-xl">
       <h2 class="text-lg font-bold text-slate-200 mb-4 flex items-center gap-2">
         <i class="fa-solid fa-table-cells text-yellow-500"></i> Ma Trận Tần Suất Toàn Bộ Bóng Số
       </h2>
@@ -229,7 +260,7 @@
     const TAB_IDLE = 'bg-slate-800 text-slate-300 hover:bg-slate-700';
     const PICK = 6;
 
-    let currentData = { mega645: [], power655: [], jackpots: {} };
+    let currentData = { mega645: [], power655: [], jackpots: {}, prizes: {} };
     let currentGame = 'mega645';
     let loadFailed = false;
     let statsCache = null;
@@ -274,7 +305,8 @@
         currentData = {
           mega645: sanitize(json.mega645, GAMES.mega645.max),
           power655: sanitize(json.power655, GAMES.power655.max),
-          jackpots: (json.jackpots && typeof json.jackpots === 'object') ? json.jackpots : {}
+          jackpots: (json.jackpots && typeof json.jackpots === 'object') ? json.jackpots : {},
+          prizes: (json.prizes && typeof json.prizes === 'object') ? json.prizes : {}
         };
         loadFailed = false;
       } catch (err) {
@@ -370,9 +402,9 @@
             const idCell = isRealDrawId(d.draw) ? `#${escapeHtml(d.draw)}` : '---';
             return `
               <tr class="hover:bg-slate-800/40 transition">
-                <td class="py-3 px-4 font-medium text-slate-300 whitespace-nowrap">${escapeHtml(d.date || '---')}</td>
-                <td class="py-3 px-4 text-slate-400 whitespace-nowrap">${idCell}</td>
-                <td class="py-3 px-4"><div class="flex flex-wrap items-center gap-1.5">${main}${bonus}</div></td>
+                <td class="py-3 px-3 sm:px-4 font-medium text-slate-300 whitespace-nowrap">${escapeHtml(d.date || '---')}</td>
+                <td class="py-3 px-3 sm:px-4 text-slate-400 whitespace-nowrap hidden sm:table-cell">${idCell}</td>
+                <td class="py-3 px-3 sm:px-4"><div class="flex flex-wrap items-center gap-1.5">${main}${bonus}</div></td>
               </tr>`;
           }).join('');
 
@@ -525,17 +557,21 @@
       }
       box.innerHTML = savedList.map(x => {
         const g = GAMES[x.game];
-        const when = new Date(x.createdAt).toLocaleString('vi-VN', { hour12: false });
+        const when = new Date(x.createdAt).toLocaleString('vi-VN', { hourCycle: 'h23' });
         const left = formatTimeLeft(x);
         return `
-          <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5 bg-slate-950 border border-slate-800/80 rounded-xl px-3 py-2">
-            <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 whitespace-nowrap">${g.label}</span>
-            <div class="flex flex-wrap gap-1.5">${x.numbers.map(n => ball(n, 'ball-sm ' + g.ballClass)).join('')}</div>
-            <span class="text-[11px] text-slate-500 ml-auto whitespace-nowrap">
-              ${escapeHtml(STRATEGY_LABEL[x.strategy] || '')} · ${escapeHtml(when)}${left ? ' · ' + left : ''}
-            </span>
-            <button onclick="deleteSaved('${escapeHtml(x.id)}')" aria-label="Xóa dãy số này"
-              class="text-slate-500 hover:text-red-400 transition px-2 text-sm leading-none">✕</button>
+          <div class="bg-slate-950 border border-slate-800/80 rounded-xl pl-3 pr-1 py-2.5">
+            <div class="flex items-start gap-1">
+              <div class="flex-1 min-w-0">
+                <div class="flex flex-wrap items-center gap-x-2 gap-y-1 mb-2">
+                  <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 whitespace-nowrap">${g.label}</span>
+                  <span class="text-[11px] text-slate-500">${escapeHtml(STRATEGY_LABEL[x.strategy] || '')} · ${escapeHtml(when)}${left ? ' · ' + left : ''}</span>
+                </div>
+                <div class="flex flex-wrap gap-1.5">${x.numbers.map(n => ball(n, 'ball-sm ' + g.ballClass)).join('')}</div>
+              </div>
+              <button onclick="deleteSaved('${escapeHtml(x.id)}')" aria-label="Xóa dãy số này"
+                class="shrink-0 w-10 h-10 inline-flex items-center justify-center rounded-lg text-slate-500 hover:text-red-400 active:bg-slate-800 transition text-sm">✕</button>
+            </div>
           </div>`;
       }).join('');
     }
@@ -582,10 +618,10 @@
       return '';
     }
 
-    // Giá trị Jackpot do crawler lấy tự động (nếu có trong data.json)
-    function getAutoJackpot(game, id) {
-      const j = currentData.jackpots && currentData.jackpots[game];
-      const v = j && j[id];
+    // Giá trị do crawler lấy tự động (nếu có trong data.json): Jackpot từ khối jackpots, giải nhất/nhì/ba từ khối prizes
+    function getAutoValue(game, tier) {
+      const src = tier.jackpot ? currentData.jackpots : currentData.prizes;
+      const v = src && src[game] && src[game][tier.id];
       return Number.isFinite(v) && v > 0 ? v : null;
     }
 
@@ -593,8 +629,8 @@
       const g = currentGame;
       let anyAuto = false;
       $('prize-rows').innerHTML = PRIZE_TIERS[g].map(t => {
-        const auto = t.jackpot ? getAutoJackpot(g, t.id) : null;
-        if (auto !== null) anyAuto = true;
+        const auto = getAutoValue(g, t);
+        if (auto !== null && t.jackpot) anyAuto = true;
         const val = auto !== null ? auto
           : (prizes[g][t.id] !== undefined ? prizes[g][t.id] : (t.def !== undefined ? t.def : null));
         const shown = val === null ? '' : fmtMoney(val);
@@ -619,11 +655,17 @@
       const jp = currentData.jackpots && currentData.jackpots[g];
       const autoAt = anyAuto && jp && jp.updated ? Date.parse(jp.updated) : NaN;
       const manualAt = prizes[g].updatedAt;
-      $('prize-updated').textContent = Number.isFinite(autoAt)
-        ? `Jackpot tự động lấy từ Minh Chính, đổi lần cuối: ${new Date(autoAt).toLocaleString('vi-VN', { hour12: false })}`
-        : manualAt
-          ? `Cập nhật lần cuối: ${new Date(manualAt).toLocaleString('vi-VN', { hour12: false })}`
+      const note = $('prize-updated');
+      if (anyAuto) {
+        const when = jp.draw ? `kỳ #${escapeHtml(jp.draw)}${jp.drawDate ? ' (' + escapeHtml(jp.drawDate) + ')' : ''}` : 'kỳ vừa quay';
+        note.innerHTML = `Jackpot của <b class="text-slate-300">${when}</b>, tự động lấy từ Minh Chính. ` +
+          `Nếu kỳ đó chưa ai trúng thì Jackpot kỳ tới sẽ cao hơn số này.` +
+          (Number.isFinite(autoAt) ? `<br>Đổi lần cuối: ${new Date(autoAt).toLocaleString('vi-VN', { hourCycle: 'h23' })}` : '');
+      } else {
+        note.textContent = manualAt
+          ? `Cập nhật lần cuối: ${new Date(manualAt).toLocaleString('vi-VN', { hourCycle: 'h23' })}`
           : 'Chưa có số Jackpot tự động. Nhập tay số tiền hiện tại để tiện theo dõi.';
+      }
     }
 
     function onPrizeInput(id, el) {
@@ -637,7 +679,7 @@
 
       const shortEl = $('prize-short-' + id);
       if (shortEl) shortEl.textContent = digits ? fmtShort(Number(digits)) : (tier.jackpot ? `Khởi điểm ${fmtShort(tier.min)}` : '');
-      $('prize-updated').textContent = `Cập nhật lần cuối: ${new Date(prizes[currentGame].updatedAt).toLocaleString('vi-VN', { hour12: false })}`;
+      $('prize-updated').textContent = `Cập nhật lần cuối: ${new Date(prizes[currentGame].updatedAt).toLocaleString('vi-VN', { hourCycle: 'h23' })}`;
     }
 
     function renderSuggestedBalls(numbers) {

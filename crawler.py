@@ -42,6 +42,7 @@ JACKPOT_IDS = {
     "mega645": {"jackpot": "mega656_GT"},
     "power655": {"jackpot": "power655_GT", "jackpot2": "power655_GT2"},
 }
+PRIZE_LABELS = {"giải nhất": "first", "giải nhì": "second", "giải ba": "third"}
 MIN_JACKPOT = 1_000_000_000  # dưới mức này coi là đọc sai (Jackpot thấp nhất là 3 tỷ)
 
 DATE_RE = re.compile(r"(\d{2}/\d{2}/\d{4})")
@@ -64,7 +65,7 @@ def make_session():
 
 def load_data():
     """Tải dữ liệu cũ từ data.json nếu hợp lệ."""
-    empty = {"mega645": [], "power655": [], "jackpots": {}}
+    empty = {"mega645": [], "power655": [], "jackpots": {}, "prizes": {}}
     if not os.path.exists(DATA_FILE):
         return empty
     try:
@@ -78,8 +79,9 @@ def load_data():
     for key in ("mega645", "power655"):
         if not isinstance(content.get(key), list):
             content[key] = []
-    if not isinstance(content.get("jackpots"), dict):
-        content["jackpots"] = {}
+    for key in ("jackpots", "prizes"):
+        if not isinstance(content.get(key), dict):
+            content[key] = {}
     return content
 
 
@@ -182,8 +184,41 @@ def parse_jackpots(soup, game_type):
     return found
 
 
+def parse_prizes(soup):
+    """Giá trị giải nhất / nhì / ba trong bảng giải thưởng (cột cuối của mỗi dòng)."""
+    found = {}
+    table = soup.select_one("table.table_vietlott")
+    if table is None:
+        return found
+    for tr in table.find_all("tr"):
+        cells = tr.find_all(["td", "th"])
+        if len(cells) < 2:
+            continue
+        key = PRIZE_LABELS.get(cells[0].get_text(" ", strip=True).lower())
+        value = parse_money(cells[-1].get_text())
+        if key and value and 1_000 <= value <= 1_000_000_000:
+            found[key] = value
+    return found
+
+
+def parse_latest_draw(soup):
+    """Mã kỳ (#1590) và ngày quay của kỳ mới nhất, nơi giá trị Jackpot trên trang thuộc về."""
+    box = soup.select_one(".congdon .ngay")
+    if box is None:
+        return {}
+    texts = [a.get_text(strip=True) for a in box.find_all("a")]
+    out = {}
+    for t in texts:
+        m = re.fullmatch(r"#(\d{3,6})", t)
+        if m and "draw" not in out:
+            out["draw"] = m.group(1)
+        if DATE_RE.fullmatch(t) and "drawDate" not in out:
+            out["drawDate"] = t
+    return out
+
+
 def fetch_game(session, game_type):
-    """Tải trang một lần, trả về (danh sách kỳ quay, dict jackpot)."""
+    """Tải trang một lần, trả về (kỳ quay, thông tin jackpot, giải cố định)."""
     cfg = GAMES[game_type]
     try:
         res = session.get(cfg["url"], timeout=25)
@@ -191,9 +226,12 @@ def fetch_game(session, game_type):
         res.encoding = "utf-8"
     except requests.RequestException as e:
         print(f"Lỗi kết nối {game_type}: {e}")
-        return [], {}
+        return [], {}, {}
     soup = BeautifulSoup(res.text, "html.parser")
-    return parse_draws(soup, game_type), parse_jackpots(soup, game_type)
+    jackpots = parse_jackpots(soup, game_type)
+    if jackpots:  # kèm mã kỳ/ngày để biết Jackpot này là của kỳ nào
+        jackpots.update(parse_latest_draw(soup))
+    return parse_draws(soup, game_type), jackpots, parse_prizes(soup)
 
 
 def update_jackpots(data, game_type, new_values):
@@ -238,11 +276,13 @@ def main():
 
     for game_type in GAMES:
         print(f"--- Đang cào {game_type} ---")
-        items, jackpots = fetch_game(session, game_type)
-        print(f"Tìm thấy {len(items)} kỳ, jackpot: {jackpots or 'không đọc được'}.")
+        items, jackpots, prizes = fetch_game(session, game_type)
+        print(f"Tìm thấy {len(items)} kỳ, jackpot: {jackpots or 'không đọc được'}, giải cố định: {prizes or 'không đọc được'}.")
         if items:
             data[game_type] = merge_and_sort(data.get(game_type, []), items)
         update_jackpots(data, game_type, jackpots)
+        if prizes:
+            data.setdefault("prizes", {})[game_type] = prizes
         if items or jackpots:
             fetched_any = True
 
